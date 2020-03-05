@@ -55,6 +55,6 @@ void dlgComposer::init(const QString &newTitle, const QString &newText)
 }
 
 void dlgComposer::closeEvent(QCloseEvent* event){
-    // Cancel button sends command to exit the in-game editor.  Clicking X just closes the window.
+    // Cancel button sends command to exit the in-game editor.  Clicking X just closes the composer window.
     mpHost->mTelnet.mpComposer = nullptr;
 }
