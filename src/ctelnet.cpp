@@ -2010,7 +2010,6 @@ void cTelnet::atcpComposerCancel()
         return;
     }
     mpComposer->close();
-    mpComposer = nullptr;
     // This will be unaffected by Mud Server encoding:
     std::string output = "*q\nno\n";
     socketOutRaw(output);
@@ -2062,7 +2061,6 @@ void cTelnet::atcpComposerSave(QString txt)
     }
 
     mpComposer->close();
-    mpComposer = nullptr;
 }
 
 // Revamped to take additional [ WARN ], [ ALERT ] and [ INFO ] prefixes and to indent
