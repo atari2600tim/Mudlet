@@ -55,7 +55,7 @@ void dlgComposer::init(const QString &newTitle, const QString &newText)
 }
 
 void dlgComposer::closeEvent(QCloseEvent* event){
-    // Called when closed via code in the buttons, cTelnet::~cTelnet(), or the window system
+    // Called when closed via window system or ->close() code (in save/cancel buttons, or cTelnet destructor)
     // Cancel button sends a command to quit the in-game editor, closing via window system simply closes the composer
     mpHost->mTelnet.mpComposer = nullptr;
 }
