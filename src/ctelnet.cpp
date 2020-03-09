@@ -221,7 +221,7 @@ cTelnet::~cTelnet()
         }
     }
     if (mpComposer) {
-        mpComposer.deleteLater();
+        mpComposer->deleteLater();
     }
     socket.deleteLater();
 }
