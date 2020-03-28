@@ -126,7 +126,7 @@ QPointer<QMainWindow> mudlet::mpDebugArea = nullptr;
 bool mudlet::debugMode = false;
 
 const bool mudlet::scmIsReleaseVersion = QByteArray(APP_BUILD).isEmpty();
-const bool mudlet::scmIsPublicTestVersion = QByteArray(APP_BUILD).startsWith("-public-test-build");
+const bool mudlet::scmIsPublicTestVersion = QByteArray(APP_BUILD).startsWith("-ptb");
 const bool mudlet::scmIsDevelopmentVersion = !mudlet::scmIsReleaseVersion && !mudlet::scmIsPublicTestVersion;
 
 QVariantHash mudlet::mLuaFunctionNames;
@@ -412,7 +412,7 @@ mudlet::mudlet()
         QStringList issueReportIcons {"face-uncertain.png", "face-surprise.png", "face-smile.png", "face-sad.png", "face-plain.png"};
         auto randomIcon = QRandomGenerator::global()->bounded(issueReportIcons.size());
         mpActionReportIssue->setIcon(QIcon(QStringLiteral(":/icons/%1").arg(issueReportIcons.at(randomIcon))));
-        mpActionReportIssue->setToolTip(tr("Report an issue about the Mudlet Public Test Build"));
+        mpActionReportIssue->setToolTip(tr("The public test build gets newer features to you quicker, and you help us find issues in them quicker. Spotted something odd? Let us know asap!"));
         mpMainToolBar->addAction(mpActionReportIssue);
         mpActionReportIssue->setObjectName(QStringLiteral("reportissue_action"));
         mpMainToolBar->widgetForAction(mpActionReportIssue)->setObjectName(mpActionReportIssue->objectName());

@@ -109,9 +109,18 @@ BUILD = $$(MUDLET_VERSION_BUILD)
 isEmpty( BUILD ) {
 # Possible values are:
 # "-dev" for the development build
-# "-public-test-build" for the public test build
+# "-ptb" for the public test build
 # "" for the release build
    BUILD = "-dev"
+}
+
+# As the above also modifies the splash screen image (so developers get reminded
+# what they are working with!) Packagers (e.g. for Linux distributions) will
+# want to set the environmental variable WITH_VARIABLE_SPLASH_SCREEN to NO so
+# that their build does not appear to be a "DEV"elopment build!
+WITH_VS_SCREEN_TEST = $$upper($$(WITH_VARIABLE_SPLASH_SCREEN))
+isEmpty( WITH_VS_SCREEN_TEST ) | !equals(WITH_VS_SCREEN_TEST, "NO" ) {
+    DEFINES += INCLUDE_VARIABLE_SPLASH_SCREEN
 }
 
 # Changing BUILD and VERSION values affects: ctelnet.cpp, main.cpp, mudlet.cpp
@@ -1286,6 +1295,13 @@ win32 {
     # specify some windows information about the binary
     QMAKE_TARGET_COMPANY = "Mudlet makers"
     QMAKE_TARGET_DESCRIPTION = "Mudlet the MUD client"
+
+    # Product name determines the Windows Start Menu shortcut name
+    contains(BUILD, "-ptb.+") {
+        QMAKE_TARGET_PRODUCT = "Mudlet PTB"
+    } else {
+        QMAKE_TARGET_PRODUCT = "Mudlet"
+    }
 }
 
 # Pull the docs and lua files into the project so they show up in the Qt Creator project files list
