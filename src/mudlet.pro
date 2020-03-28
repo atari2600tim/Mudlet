@@ -496,6 +496,7 @@ SOURCES += \
     TBuffer.cpp \
     TCommandLine.cpp \
     TConsole.cpp \
+    TAccessibleConsole.cpp \
     TDebug.cpp \
     TDockWidget.cpp \
     TEasyButtonBar.cpp \
@@ -569,6 +570,7 @@ HEADERS += \
     TBuffer.h \
     TCommandLine.h \
     TConsole.h \
+    TAccessibleConsole.h \
     TDebug.h \
     TDockWidget.h \
     TEasyButtonBar.h \
