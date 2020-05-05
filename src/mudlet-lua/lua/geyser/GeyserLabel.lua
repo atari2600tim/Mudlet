@@ -319,9 +319,9 @@ function Geyser.Label:resetToolTip()
   self.toolTipDuration = nil
 end
 
---- Set a predefined Mouse Cursor Shape for this label
--- @param cursorShape the predefined cursorshape as number from 1 to 21
--- see: https://doc.qt.io/qt-5/qt.html#CursorShape-enum
+--- Set a predefined mouse cursor shape for this label
+-- @param cursorShape the predefined cursorshape as a string
+-- see: https://wiki.mudlet.org/w/CursorShapes
 function Geyser.Label:setCursor(cursorShape)
   setLabelCursor(self.name, cursorShape)
   -- Get cursorShape as string
@@ -334,7 +334,7 @@ function Geyser.Label:setCursor(cursorShape)
   self.cursorShape = cursorShape
 end
 
---- Set a custom Mouse Cursor Shape for this label
+--- Set a custom mouse cursor shape for this label
 -- @param customCursor location of your custom cursor. It's suggested to use a png with size of 32x32 which is supported on all platforms
 -- see https://doc.qt.io/qt-5/qcursor.html#shape
 function Geyser.Label:setCustomCursor(customCursor, hotX, hotY)
@@ -353,7 +353,7 @@ end
 
 --- closes all nested labels
 function closeAllLevels(label)
-  if label.nestedLabels  then
+  if label.nestedLabels and label.nestedLabels[1] then
     label = label.nestedLabels[1]
   end
   for i, v in pairs(label.container.Label.scrollV) do

@@ -39,6 +39,7 @@
 #include "discord.h"
 
 #include "pre_guard.h"
+#include <QDir>
 #include <QFlags>
 #ifdef QT_GAMEPAD_LIB
 #include <QGamepad>
@@ -59,7 +60,12 @@
 #include <QToolButton>
 #include <QVersionNumber>
 #include "edbee/models/textautocompleteprovider.h"
+#if defined(INCLUDE_OWN_QT5_KEYCHAIN)
 #include <../3rdparty/qtkeychain/keychain.h>
+#else
+#include <qt5keychain/keychain.h>
+#endif
+
 #include <optional>
 #include "post_guard.h"
 
@@ -145,7 +151,7 @@ public:
     bool setWindowFontSize(Host *, const QString &, int);
     int getFontSize(Host*, const QString&);
     QSize calcFontSize(Host* pHost, const QString& windowName);
-    bool openWindow(Host*, const QString&, bool loadLayout = true);
+    std::pair<bool, QString> openWindow(Host*, const QString&, bool loadLayout, bool autoDock, const QString &area);
     bool setProfileStyleSheet(Host* pHost, const QString& styleSheet);
     std::pair<bool, QString> createMiniConsole(Host*, const QString& windowname, const QString& name, int, int, int, int);
     std::pair<bool, QString> createLabel(Host* pHost, const QString& windowname, const QString& name, int x, int y, int width, int height, bool fillBg, bool clickthrough);
@@ -165,13 +171,13 @@ public:
     bool setBackgroundImage(Host*, const QString& name, QString& path);
     bool setTextFormat(Host*, const QString& name, const QColor &bgColor, const QColor &fgColor, const TChar::AttributeFlags attributes = TChar::None);
     bool setDisplayAttributes(Host* pHost, const QString& name, const TChar::AttributeFlags attributes, const bool state);
-    bool setLabelClickCallback(Host*, const QString&, const QString&, const TEvent&);
-    bool setLabelDoubleClickCallback(Host*, const QString&, const QString&, const TEvent&);
-    bool setLabelReleaseCallback(Host*, const QString&, const QString&, const TEvent&);
-    bool setLabelMoveCallback(Host*, const QString&, const QString&, const TEvent&);
-    bool setLabelWheelCallback(Host*, const QString&, const QString&, const TEvent&);
-    bool setLabelOnEnter(Host*, const QString&, const QString&, const TEvent&);
-    bool setLabelOnLeave(Host*, const QString&, const QString&, const TEvent&);
+    bool setLabelClickCallback(Host*, const QString&, const int);
+    bool setLabelDoubleClickCallback(Host*, const QString&, const int);
+    bool setLabelReleaseCallback(Host*, const QString&, const int);
+    bool setLabelMoveCallback(Host*, const QString&, const int);
+    bool setLabelWheelCallback(Host*, const QString&, const int);
+    bool setLabelOnEnter(Host*, const QString&, const int);
+    bool setLabelOnLeave(Host*, const QString&, const int);
     bool moveWindow(Host*, const QString& name, int, int);
     std::pair<bool, QString> setWindow(Host* pHost, const QString& windowname, const QString& name, int x1, int y1, bool show);
     std::pair<bool, QString> openMapWidget(Host* pHost, const QString& area, int x, int y, int width, int height);
@@ -416,7 +422,7 @@ public:
     // operating without either menubar or main toolbar showing.
     bool isControlsVisible() const;
     bool loadReplay(Host*, const QString&, QString* pErrMsg = nullptr);
-    void show_options_dialog(QString tab);
+    void show_options_dialog(const QString& tab);
     void setInterfaceLanguage(const QString &languageCode);
     const QString& getInterfaceLanguage() const { return mInterfaceLanguage; }
     QList<QString> getAvailableTranslationCodes() const { return mTranslationsMap.keys(); }
@@ -442,9 +448,10 @@ public:
     void scanForMudletTranslations(const QString&);
     void scanForQtTranslations(const QString&);
     void layoutModules();
-    void startAutoLogin();
+    void startAutoLogin(const QString&);
     QPointer<QTableWidget> moduleTable;
     int64_t getPhysicalMemoryTotal();
+    const QMap<QByteArray, QString>& getEncodingNamesMap() const { return mEncodingNameMap; }
 
 
 #if defined(INCLUDE_UPDATER)
@@ -589,7 +596,7 @@ private:
     void set_compact_input_line();
     QSettings* getQSettings();
     void loadTranslators(const QString &languageCode);
-    void loadDictionaryLanguageMap();
+    void loadMaps();
     void migrateDebugConsole(Host* currentHost);
     static bool firstLaunch();
     QString autodetectPreferredLanguage();
@@ -713,6 +720,9 @@ private:
     QStringList mProfilePasswordsToMigrate {};
 
     bool mStorePasswordsSecurely {true};
+    // Stores the translated names for the Encodings for the static and thus
+    // const TBuffer::csmEncodingTable:
+    QMap<QByteArray, QString> mEncodingNameMap;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(mudlet::controlsVisibility)

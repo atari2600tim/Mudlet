@@ -37,6 +37,7 @@
 #include "dlgMapper.h"
 #include "mudlet.h"
 
+
 #include "pre_guard.h"
 #include <chrono>
 #include <QtUiTools>
@@ -205,6 +206,8 @@ Host::Host(int port, const QString& hostname, const QString& login, const QStrin
 , mEnableMSP(true)
 , mEnableMSDP(false)
 , mServerMXPenabled(true)
+, mMxpClient(this)
+, mMxpProcessor(&mMxpClient)
 , mMediaLocationGMCP(QString())
 , mMediaLocationMSP(QString())
 , mFORCE_GA_OFF(false)
@@ -596,6 +599,19 @@ std::pair<bool, QString> Host::changeModuleSync(const QString& moduleName, const
     return {false, QStringLiteral("module name \"%1\" not found").arg(moduleName)};
 }
 
+std::pair<bool, QString> Host::getModuleSync(const QString& moduleName)
+{
+    if (moduleName.isEmpty()) {
+        return {false, QStringLiteral("module name cannot be an empty string")};
+    }
+
+    if (mInstalledModules.contains(moduleName)) {
+        QStringList moduleStringList = mInstalledModules[moduleName];
+        return {true, moduleStringList[1]};
+    }
+    return {false, QStringLiteral("module name \"%1\" not found").arg(moduleName)};
+}
+
 void Host::resetProfile_phase1()
 {
     mAliasUnit.stopAllTriggers();
@@ -933,7 +949,11 @@ void Host::send(QString cmd, bool wantPrint, bool dontExpandAliases)
             mpConsole->printCommand(cmd);
         }
         //If 3D Mapper is active mpConsole->update(); seems to be superfluous and even cause problems in MacOS
+#if defined(INCLUDE_3DMAPPER)
         if (!mpMap->mpMapper || !mpMap->mpMapper->glWidget) {
+#else
+        if (!mpMap->mpMapper) {
+#endif
             mpConsole->update();
         }
     }
@@ -990,7 +1010,7 @@ QPair<int, QString> Host::createStopWatch(const QString& name)
     int newWatchId = 1;
     while (mStopWatchMap.contains(newWatchId)) {
         ++newWatchId;
-    };
+    }
 
     // It is hard to imagine a situation in which this will fail - so we won't
     // bother coding for it:
@@ -1927,9 +1947,10 @@ void Host::setWideAmbiguousEAsianGlyphs(const Qt::CheckState state)
         // Set things automatically
         mAutoAmbigousWidthGlyphsSetting = true;
 
-        if ( encoding == QLatin1String("GBK")
-             || encoding == QLatin1String("GB18030")
-             || encoding == QLatin1String("Big5")) {
+        if (encoding == QLatin1String("GBK")
+            || encoding == QLatin1String("GB18030")
+            || encoding == QLatin1String("Big5")
+            || encoding == QLatin1String("Big5-HKSCS")) {
 
             // Need to use wide width for ambiguous characters
             if (!mWideAmbigousWidthGlyphs) {
@@ -2513,4 +2534,19 @@ void Host::setSearchOptions(const dlgTriggerEditor::SearchOptions optionsState)
     if (mpEditorDialog) {
         mpEditorDialog->setSearchOptions(optionsState);
     }
+}
+
+std::pair<bool, QString> Host::setMapperTitle(const QString& title)
+{
+    if (!mpDockableMapWidget) {
+        return {false, "no floating/dockable type map window found"};
+    }
+
+    if (title.isEmpty()) {
+        mpDockableMapWidget->setWindowTitle(tr("Map - %1").arg(mHostName));
+    } else {
+        mpDockableMapWidget->setWindowTitle(title);
+    }
+
+    return {true, QString()};
 }

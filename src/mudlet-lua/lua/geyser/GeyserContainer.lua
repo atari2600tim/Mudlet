@@ -158,9 +158,9 @@ function Geyser.Container:show (auto)
   -- If my container is hidden I stay hidden and after it get visible again I'm visible too
   if self.container.hidden or self.container.auto_hidden then
     if auto == false then
-      self.hidden = false 
+      self.hidden = false
     end
-    return false 
+    return false
   end
   if auto then
     self.auto_hidden = false
@@ -181,13 +181,75 @@ function Geyser.Container:show_impl()
 end
 
 --- Raises the window to the top of the z-order stack, displaying in front of all other windows
-function Geyser.Container:raise ()
-	raiseWindow(self.name)
+--@param changeWindowIndex used internally
+--@see Geyser.Container:raiseAll
+function Geyser.Container:raise (changeWindowIndex)
+  raiseWindow(self.name)
+  if changeWindowIndex ~= false then
+    local index = table.index_of(self.container.windows, self.name)
+    if index == #self.container.windows then
+      return
+    end
+    local tempValue = self.container.windows[index]
+    table.remove(self.container.windows, index)
+    self.container.windows[#self.container.windows+1] = tempValue
+  end
 end
 
 --- Lowers the window to the bottom of the z-order stack, displaying behind all other windows
-function Geyser.Container:lower ()
-	lowerWindow(self.name)
+--@param changeWindowIndex used internally
+--@see Geyser.Container:lowerAll
+function Geyser.Container:lower (changeWindowIndex)
+  lowerWindow(self.name)
+  if changeWindowIndex ~= false then
+    local index = table.index_of(self.container.windows, self.name)
+    if index == 1 then
+      return
+    end
+    local tempValue = self.container.windows[index]
+    table.remove(self.container.windows, index)
+    table.insert(self.container.windows, 1, tempValue)
+  end
+end
+
+--- Raises the window and all its containing elements to the top of the z-order stack, displaying in front of all other windows.
+--@param container used internally
+--@param me used internally
+--@see Geyser.Container:raise
+function Geyser.Container:raiseAll(container, me)
+  container = container or self
+  -- raise myself
+  if me ~= false then
+    container:raise()
+  end
+  local v
+  for i=1, #container.windows do
+    v = container.windows[i]
+    container.windowList[v]:raise(false)
+    container.windowList[v]:raiseAll(container.windowList[v], false)
+  end
+end
+
+local function createWindowTable(container)
+  local v
+  Geyser.Container.windowTable = Geyser.Container.windowTable or {}
+  for i=1, #container.windows do
+    v = container.windows[i]
+    Geyser.Container.windowTable[#Geyser.Container.windowTable+1] = container.windowList[v]
+    createWindowTable(container.windowList[v])
+  end
+end
+
+--- Lowers the window and all its containing elements to the bottom of the z-order stack, displaying behind all other windows
+--@see Geyser.Container:lower
+function Geyser.Container:lowerAll()
+  createWindowTable(self)
+  -- iterate in reverse order through all elements to keep the same z-axis inside the container
+  for i=#Geyser.Container.windowTable,1,-1 do
+    Geyser.Container.windowTable[i]:lower(false)
+  end
+  Geyser.Container.windowTable = nil
+  self:lower()
 end
 
 --- Moves this window according to the new x and y contraints set.
