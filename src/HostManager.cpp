@@ -113,6 +113,7 @@ int HostManager::getHostCount()
 
 void HostManager::postIrcMessage(const QString& a, const QString& b, const QString& c)
 {
+    qDebug()<<"PIM(hm) - HostManager::postIrcMessage was called (NOT SURE IF EVER CALLED?)";
     mPoolReadWriteLock.lockForRead(); // Will block if a write lock is in place
 
     const QList<QSharedPointer<Host>> hostList = mHostPool.values();
@@ -122,6 +123,7 @@ void HostManager::postIrcMessage(const QString& a, const QString& b, const QStri
             i->postIrcMessage(a, b, c);
         }
     }
+    qDebug()<<"PIM(hm) - HostManager::postIrcMessage finished";
 }
 
 // The slightly convoluted way we step through the list of hosts is so that we
