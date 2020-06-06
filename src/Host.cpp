@@ -1351,11 +1351,14 @@ void Host::registerEventHandler(const QString& name, TScript* pScript)
 }
 void Host::registerAnonymousEventHandler(const QString& name, const QString& fun)
 {
+    qDebug()<<"rAEH - Host::registerAnonymousEventHandler was called, name="<<name<<", fun="<<fun;
     if (mAnonymousEventHandlerFunctions.contains(name)) {
+        qDebug()<<"rAEH  is inside the if statement meaning push new listener to stack";
         if (!mAnonymousEventHandlerFunctions[name].contains(fun)) {
             mAnonymousEventHandlerFunctions[name].push_back(fun);
         }
     } else {
+        qDebug()<<"rAEH  is inside the else statement meaning create new listener list";
         QStringList newList;
         newList << fun;
         mAnonymousEventHandlerFunctions[name] = newList;
@@ -1393,10 +1396,8 @@ void Host::raiseEvent(const TEvent& pE)
 void Host::postIrcMessage(const QString& a, const QString& b, const QString& c)
 {
     TEvent event {};
-    qDebug()<<"PIM-postIrcMessage was called";
-    qDebug()<<"PIM  a= "<<a;
-    qDebug()<<"PIM  b= "<<b;
-    qDebug()<<"PIM  c= "<<c;
+    qDebug()<<"PIM-Host::postIrcMessage was called";
+    qDebug()<<"PIM  args: a= "<<a<<", b= "<<b<<" c= "<<c;
     event.mArgumentList << QLatin1String("sysIrcMessage");
     event.mArgumentList << a << b << c;
     event.mArgumentTypeList << ARGUMENT_TYPE_STRING << ARGUMENT_TYPE_STRING << ARGUMENT_TYPE_STRING << ARGUMENT_TYPE_STRING;
