@@ -1393,10 +1393,16 @@ void Host::raiseEvent(const TEvent& pE)
 void Host::postIrcMessage(const QString& a, const QString& b, const QString& c)
 {
     TEvent event {};
+    qDebug()<<"PIM-postIrcMessage was called";
+    qDebug()<<"PIM  a= "<<a;
+    qDebug()<<"PIM  b= "<<b;
+    qDebug()<<"PIM  c= "<<c;
     event.mArgumentList << QLatin1String("sysIrcMessage");
     event.mArgumentList << a << b << c;
     event.mArgumentTypeList << ARGUMENT_TYPE_STRING << ARGUMENT_TYPE_STRING << ARGUMENT_TYPE_STRING << ARGUMENT_TYPE_STRING;
+    qDebug()<<"PIM  1/2  about to raise event";
     raiseEvent(event);
+    qDebug()<<"PIM  2/2  raised the event";
 }
 
 void Host::enableTimer(const QString& name)
