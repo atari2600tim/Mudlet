@@ -589,6 +589,7 @@ void dlgIRC::appendHtml(QTextDocument* document, const QString& html)
 
 void dlgIRC::slot_receiveMessage(IrcMessage* message)
 {
+    qDebug()<<"srm - dlgIRC::slot_receiveMessage was called";
     // update timestamp of ping/pong messages.
     if (message->type() == IrcMessage::Pong && mPingStarted) {
         message->setTimeStamp(QDateTime::fromMSecsSinceEpoch(mPingStarted));
@@ -604,12 +605,16 @@ void dlgIRC::slot_receiveMessage(IrcMessage* message)
         QString html = IrcMessageFormatter::formatMessage(message);
         if (!html.isEmpty()) {
             // send a plain-text formatted copy of the message to Lua, as long as it isn't our own.
+qDebug()<<"srm -  send a plaintext copy to Lua as long as it isn't our own, will have 3 ifs";
             if (!message->isOwn()) {
+qDebug()<<"srm -  1/3 - it is not our own";
                 QString textToLua = IrcMessageFormatter::formatMessage(message, true);
                 if (!textToLua.isEmpty()) {
+qDebug()<<"srm -  2/3 - the lua text is not empty";
                     QString from = message->nick();
                     QString to = getMessageTarget(message, buffer->title());
                     if (!isDefaultHostClient()) {
+qDebug()<<"srm -  3/3 - is not isDefaultHostClient, so about to call mpHost->postIrcMessage";
                         mpHost->postIrcMessage(from, to, textToLua);
                     }
                 }
