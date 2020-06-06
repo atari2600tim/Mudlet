@@ -70,28 +70,34 @@ cTelnet::cTelnet(Host* pH, const QString& profileName)
 , mGA_Driver(false)
 , mFORCE_GA_OFF(false)
 , mpComposer(nullptr)
+, mpDownloader()
+, mpProgressDialog()
+, mProfileName(profileName)
 , mpHost(pH)
+, mpOutOfBandDataIncomingCodec()
+, outgoingDataCodec()
+, hostPort()
+, mWaitingForResponse()
+, mZstream()
+, mNeedDecompression()
+, iac()
+, iac2()
+, insb()
+, recvdGA()
 , mEncoding()
 , mpPostingTimer(new QTimer(this))
 , mUSE_IRE_DRIVER_BUGFIX(false)
-, mLF_ON_GA(false)
 , mCommands(0)
 , mMCCP_version_1(false)
 , mMCCP_version_2(false)
-, mpProgressDialog()
-, mProfileName(profileName)
-, hostPort()
-, networkLatencyMin()
-, networkLatencyMax()
-, mWaitingForResponse()
-, mZstream()
-, recvdGA()
+, mIsTimerPosting()
 , lastTimeOffset()
 , enableATCP(false)
 , enableGMCP(false)
 , enableMSSP(false)
 , enableMSP(false)
 , enableChannel102(false)
+, mDontReconnect(false)
 , mAutoReconnect(false)
 , loadingReplay(false)
 , mIsReplayRunFromLua(false)
@@ -99,10 +105,6 @@ cTelnet::cTelnet(Host* pH, const QString& profileName)
 , mEncoderFailureNoticeIssued(false)
 , mConnectViaProxy(false)
 {
-    mIsTimerPosting = false;
-    mNeedDecompression = false;
-    mDontReconnect = false;
-
     // initialize encoding to a sensible default - needs to be a different value
     // than that in the initialisation list so that it is processed as a change
     // to set up the initial encoder
@@ -112,12 +114,7 @@ cTelnet::cTelnet(Host* pH, const QString& profileName)
         termType.append(QStringLiteral(APP_BUILD));
     }
 
-    iac = iac2 = insb = false;
-
     command = "";
-    curX = 80;
-    curY = 25;
-
     // The raw string literals are QByteArrays now not QStrings:
     if (mAcceptableEncodings.isEmpty()) {
         mAcceptableEncodings << "UTF-8";
@@ -167,7 +164,7 @@ cTelnet::cTelnet(Host* pH, const QString& profileName)
 void cTelnet::reset()
 {
     //reset telnet options state
-    for (int i = 0; i < 256; i++) {
+    for (int i = 0; i < 256; ++i) {
         myOptionState[i] = false;
         hisOptionState[i] = false;
         announcedState[i] = false;
@@ -386,7 +383,6 @@ void cTelnet::connectIt(const QString& address, int port)
 {
     if (mpHost) {
         mUSE_IRE_DRIVER_BUGFIX = mpHost->mUSE_IRE_DRIVER_BUGFIX;
-        mLF_ON_GA = mpHost->mLF_ON_GA;
         mFORCE_GA_OFF = mpHost->mFORCE_GA_OFF;
 
         if (mpHost->mUseProxy && !mpHost->mProxyAddress.isEmpty() && mpHost->mProxyPort != 0) {
@@ -529,7 +525,7 @@ void cTelnet::handle_socket_signal_disconnected()
         if (sslerr) {
             mDontReconnect = true;
 
-            for (int a = 0; a < sslErrors.count(); a++) {
+            for (int a = 0; a < sslErrors.count(); ++a) {
                 reason.append(QStringLiteral("        %1\n").arg(QString(sslErrors.at(a).errorString())));
             }
             QString err = tr("[ ALERT ] - Socket got disconnected.\nReason: ") % reason;
@@ -724,7 +720,7 @@ bool cTelnet::socketOutRaw(std::string& data)
     } while (written < dataLength);
 
     if (mGA_Driver) {
-        mCommands++;
+        ++mCommands;
         if (mCommands == 1) {
             mWaitingForResponse = true;
             networkLatencyTime.restart();
@@ -1421,14 +1417,17 @@ void cTelnet::processTelnetCommand(const std::string& command)
         if (option == OPT_MSDP) {
             // Using a QByteArray means there is no consideration of encoding
             // used - it is just bytes...
-            QByteArray _m = command.c_str();
+            QByteArray rawData = command.c_str();
             if (command.size() < 6) {
                 return;
             }
-            // _m is in the Mud Server's encoding, trim off the Telnet suboption
+
+            rawData = rawData.replace(TN_BELL, QLatin1String("\\\\7"));
+
+            // rawData is in the Mud Server's encoding, trim off the Telnet suboption
             // bytes from beginning (3) and end (2):
-            _m = _m.mid(3, static_cast<int>(command.size()) - 5);
-            mpHost->mLuaInterpreter.msdp2Lua(_m.constData());
+            rawData = rawData.mid(3, static_cast<int>(rawData.size()) - 5);
+            mpHost->mLuaInterpreter.msdp2Lua(rawData.constData());
             return;
         }
 
@@ -1967,7 +1966,7 @@ void cTelnet::setMSPVariables(const QByteArray& msg)
     QStringList argumentList = transcodedMsg.split(QChar::Space);
 
     if (argumentList.size() > 0) {
-        for (int i = 0; i < argumentList.size(); i++) {
+        for (int i = 0; i < argumentList.size(); ++i) {
             if (i < 1) {
                 mediaData.setMediaFileName(argumentList[i]);
             } else {
@@ -1980,7 +1979,7 @@ void cTelnet::setMSPVariables(const QByteArray& msg)
                 QString mspVAR;
                 QString mspVAL;
 
-                for (int j = 0; j < payloadList.size(); j++) {
+                for (int j = 0; j < payloadList.size(); ++j) {
                     if (j < 1) {
                         mspVAR = payloadList[j];
                     } else {
@@ -2140,7 +2139,7 @@ void cTelnet::postMessage(QString msg)
         if (openBraceIndex >= 0 && closeBraceIndex > 0 && closeBraceIndex < hyphenIndex) {
             quint8 prefixLength = hyphenIndex + 1;
             while (body.at(0).at(prefixLength) == ' ') {
-                prefixLength++;
+                ++prefixLength;
             }
 
             QString prefix = body.at(0).left(prefixLength).toUpper();
@@ -2149,7 +2148,7 @@ void cTelnet::postMessage(QString msg)
             if (prefix.contains(tr("ERROR", "Keep the capisalisation, the translated text at 7 letters max so it aligns nicely")) || prefix.contains(QLatin1String("ERROR"))) {
                 mpHost->mpConsole->print(prefix, Qt::red, mpHost->mBgColor);                                  // Bright Red
                 mpHost->mpConsole->print(firstLineTail.append('\n'), QColor(255, 255, 50), mpHost->mBgColor); // Bright Yellow
-                for (quint8 _i = 0; _i < body.size(); _i++) {
+                for (quint8 _i = 0; _i < body.size(); ++_i) {
                     QString temp = body.at(_i);
                     temp.replace('\t', QLatin1String("        "));
                     // Fix for lua using tabs for indentation which was messing up justification:
@@ -2161,7 +2160,7 @@ void cTelnet::postMessage(QString msg)
             } else if (prefix.contains(tr("LUA", "Keep the capisalisation, the translated text at 7 letters max so it aligns nicely")) || prefix.contains(QLatin1String("LUA"))) {
                 mpHost->mpConsole->print(prefix, QColor(80, 160, 255), mpHost->mBgColor);                    // Light blue
                 mpHost->mpConsole->print(firstLineTail.append('\n'), QColor(50, 200, 50), mpHost->mBgColor); // Light green
-                for (quint8 _i = 0; _i < body.size(); _i++) {
+                for (quint8 _i = 0; _i < body.size(); ++_i) {
                     QString temp = body.at(_i);
                     temp.replace('\t', QLatin1String("        "));
                     body[_i] = temp.rightJustified(temp.length() + prefixLength);
@@ -2172,7 +2171,7 @@ void cTelnet::postMessage(QString msg)
             } else if (prefix.contains(tr("WARN", "Keep the capisalisation, the translated text at 7 letters max so it aligns nicely")) || prefix.contains(QLatin1String("WARN"))) {
                 mpHost->mpConsole->print(prefix, QColor(0, 150, 190), mpHost->mBgColor);
                 mpHost->mpConsole->print(firstLineTail.append('\n'), QColor(190, 150, 0), mpHost->mBgColor); // Orange
-                for (quint8 _i = 0; _i < body.size(); _i++) {
+                for (quint8 _i = 0; _i < body.size(); ++_i) {
                     QString temp = body.at(_i);
                     temp.replace('\t', QLatin1String("        "));
                     body[_i] = temp.rightJustified(temp.length() + prefixLength);
@@ -2183,7 +2182,7 @@ void cTelnet::postMessage(QString msg)
             } else if (prefix.contains(tr("ALERT", "Keep the capisalisation, the translated text at 7 letters max so it aligns nicely")) || prefix.contains(QLatin1String("ALERT"))) {
                 mpHost->mpConsole->print(prefix, QColor(190, 100, 50), mpHost->mBgColor);                     // Orangish
                 mpHost->mpConsole->print(firstLineTail.append('\n'), QColor(190, 190, 50), mpHost->mBgColor); // Yellow
-                for (quint8 _i = 0; _i < body.size(); _i++) {
+                for (quint8 _i = 0; _i < body.size(); ++_i) {
                     QString temp = body.at(_i);
                     temp.replace('\t', QLatin1String("        "));
                     body[_i] = temp.rightJustified(temp.length() + prefixLength);
@@ -2194,7 +2193,7 @@ void cTelnet::postMessage(QString msg)
             } else if (prefix.contains(tr("INFO", "Keep the capisalisation, the translated text at 7 letters max so it aligns nicely")) || prefix.contains(QLatin1String("INFO"))) {
                 mpHost->mpConsole->print(prefix, QColor(0, 150, 190), mpHost->mBgColor);                   // Cyan
                 mpHost->mpConsole->print(firstLineTail.append('\n'), QColor(0, 160, 0), mpHost->mBgColor); // Light Green
-                for (quint8 _i = 0; _i < body.size(); _i++) {
+                for (quint8 _i = 0; _i < body.size(); ++_i) {
                     QString temp = body.at(_i);
                     temp.replace('\t', QLatin1String("        "));
                     body[_i] = temp.rightJustified(temp.length() + prefixLength);
@@ -2205,7 +2204,7 @@ void cTelnet::postMessage(QString msg)
             } else if (prefix.contains(tr("OK", "Keep the capisalisation, the translated text at 7 letters max so it aligns nicely")) || prefix.contains(QLatin1String("OK"))) {
                 mpHost->mpConsole->print(prefix, QColor(0, 160, 0), mpHost->mBgColor);                        // Light Green
                 mpHost->mpConsole->print(firstLineTail.append('\n'), QColor(190, 100, 50), mpHost->mBgColor); // Orangish
-                for (quint8 _i = 0; _i < body.size(); _i++) {
+                for (quint8 _i = 0; _i < body.size(); ++_i) {
                     QString temp = body.at(_i);
                     temp.replace('\t', QLatin1String("        "));
                     body[_i] = temp.rightJustified(temp.length() + prefixLength);
@@ -2216,7 +2215,7 @@ void cTelnet::postMessage(QString msg)
             } else {                                                                                        // Unrecognised but still in a "[ something ] -  message..." format
                 mpHost->mpConsole->print(prefix, QColor(190, 50, 50), mpHost->mBgColor);                    // Foreground red, background bright grey
                 mpHost->mpConsole->print(firstLineTail.append('\n'), QColor(50, 50, 50), mpHost->mBgColor); //Foreground dark grey, background bright grey
-                for (quint8 _i = 0; _i < body.size(); _i++) {
+                for (quint8 _i = 0; _i < body.size(); ++_i) {
                     QString temp = body.at(_i);
                     temp.replace('\t', QLatin1String("        "));
                     body[_i] = temp.rightJustified(temp.length() + prefixLength);
@@ -2256,7 +2255,7 @@ void cTelnet::gotPrompt(std::string& mud_data)
                         goto NEXT;
                         break;
                     }
-                    j++;
+                    ++j;
                 }
             }
             if (mMudData[j] == '\n') {
@@ -2266,7 +2265,7 @@ void cTelnet::gotPrompt(std::string& mud_data)
                 break;
             }
         NEXT:
-            j++;
+            ++j;
         }
         //
         ////////////////////////////
@@ -2302,16 +2301,10 @@ void cTelnet::gotRest(std::string& mud_data)
             }
         }
 
-    } else if (mGA_Driver) {
+    } else {
         mMudData += mud_data;
         postData();
         mMudData = "";
-    } else {
-        mMudData += mud_data;
-        if (!mIsTimerPosting) {
-            mpPostingTimer->start();
-            mIsTimerPosting = true;
-        }
     }
 }
 
@@ -2463,7 +2456,7 @@ void cTelnet::slot_processReplayChunk()
     int datalen = loadedBytes;
     std::string cleandata = "";
     recvdGA = false;
-    for (int i = 0; i < datalen; i++) {
+    for (int i = 0; i < datalen; ++i) {
         char ch = loadBuffer[i];
         if (iac || iac2 || insb || (ch == TN_IAC)) {
             if (!(iac || iac2 || insb) && (ch == TN_IAC)) {
@@ -2519,7 +2512,7 @@ void cTelnet::slot_processReplayChunk()
                 command = "";
             }
         } else {
-            if (ch != '\r') {
+            if (ch != '\r' && ch != '\0') {
                 cleandata += ch;
             }
         }
@@ -2533,9 +2526,7 @@ void cTelnet::slot_processReplayChunk()
                 }
             }
 
-            if (mUSE_IRE_DRIVER_BUGFIX || mLF_ON_GA) {
-                cleandata.push_back('\n'); //part of the broken IRE-driver bugfix to make up for broken \n-prepending in unsolicited lines, part #2 see line 628
-            }
+            cleandata.push_back('\n');
             recvdGA = false;
             gotPrompt(cleandata);
             cleandata = "";
@@ -2568,8 +2559,6 @@ void cTelnet::handle_socket_signal_readyRead()
 
 void cTelnet::processSocketData(char* in_buffer, int amount)
 {
-    mpHost->mInsertedMissingLF = false;
-
     char out_buffer[100010];
 
     in_buffer[amount + 1] = '\0';
@@ -2598,7 +2587,7 @@ void cTelnet::processSocketData(char* in_buffer, int amount)
         }
 
         recvdGA = false;
-        for (int i = 0; i < datalen; i++) {
+        for (int i = 0; i < datalen; ++i) {
             char ch = buffer[i];
 
             if (iac || iac2 || insb || (ch == TN_IAC)) {
@@ -2638,7 +2627,6 @@ void cTelnet::processSocketData(char* in_buffer, int amount)
                         if ((_ch == OPT_COMPRESS) || (_ch == OPT_COMPRESS2)) {
                             bool _compress = false;
                             if ((i > 1) && (i + 2 < datalen)) {
-                                qDebug() << "checking mccp start seq...";
                                 if ((buffer[i - 2] == TN_IAC) && (buffer[i - 1] == TN_SB) && (buffer[i + 1] == TN_WILL) && (buffer[i + 2] == TN_SE)) {
                                     qDebug() << "MCCP version 1 starting sequence";
                                     _compress = true;
@@ -2647,7 +2635,6 @@ void cTelnet::processSocketData(char* in_buffer, int amount)
                                     qDebug() << "MCCP version 2 starting sequence";
                                     _compress = true;
                                 }
-                                qDebug() << (int)buffer[i - 2] << "," << (int)buffer[i - 1] << "," << (int)buffer[i] << "," << (int)buffer[i + 1] << "," << (int)buffer[i + 2];
                             }
                             if (_compress) {
                                 mNeedDecompression = true;
@@ -2703,7 +2690,7 @@ void cTelnet::processSocketData(char* in_buffer, int amount)
                     // flash taskbar for 3 seconds on the telnet bell
                     QApplication::alert(mudlet::self(), 3000);
                 }
-                if (ch != '\r' && ch != 0) {
+                if (ch != '\r' && ch != '\0') {
                     cleandata += ch;
                 }
             }
@@ -2723,10 +2710,7 @@ void cTelnet::processSocketData(char* in_buffer, int amount)
                     gotPrompt(cleandata);
                     cleandata = "";
                 } else {
-                    if (mLF_ON_GA) //TODO: reenable option in preferences
-                    {
-                        cleandata.push_back('\n');
-                    }
+                    cleandata.push_back('\n');
                 }
             }
         } //for
