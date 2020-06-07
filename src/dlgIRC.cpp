@@ -613,10 +613,15 @@ qDebug()<<"srm -  1/3 - it is not our own";
 qDebug()<<"srm -  2/3 - the lua text is not empty";
                     QString from = message->nick();
                     QString to = getMessageTarget(message, buffer->title());
+                    /*
                     if (!isDefaultHostClient()) {
 qDebug()<<"srm -  3/3 - is not isDefaultHostClient, so about to call mpHost->postIrcMessage";
                         mpHost->postIrcMessage(from, to, textToLua);
                     }
+                    */
+                    if(isDefaultHostClient()) { qDebug()<<"srm -  3/3 - isDefaultHostClient is true, gonna call mpHost->postIrcMessage anyway"; }
+                    mpHost->postIrcMessage(from, to, textToLua);
+                    
                 }
             }
 
