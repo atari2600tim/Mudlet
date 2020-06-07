@@ -620,6 +620,7 @@ qDebug()<<"srm -  3/3 - is not isDefaultHostClient, so about to call mpHost->pos
                     }
                     */
                     if(isDefaultHostClient()) { qDebug()<<"srm -  3/3 - isDefaultHostClient is true, gonna call mpHost->postIrcMessage anyway"; }
+                    else { qDebug()<<"srm -  3/3 - isDefaultHostClient is false, would call mpHost->postIrcMessage even on old code"; }
                     mpHost->postIrcMessage(from, to, textToLua);
                     
                 }
