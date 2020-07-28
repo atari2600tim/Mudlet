@@ -993,9 +993,15 @@ function loadTranslations(packageName, fileName, languageCode, folder)
       translation = readJsonFile(langFile)
       translation = getTranslationTable(translation, packageName)
   end
-  if table.is_empty(translation) and defaultFile then
-      translation = readJsonFile(defaultFile)
-      translation = getTranslationTable(translation, packageName)
+  if defaultFile then
+    local defaultTranslation = readJsonFile(defaultFile)
+    defaultTranslation = getTranslationTable(defaultTranslation, packageName)
+    if table.is_empty(translation) then
+      translation = defaultTranslation
+    else
+      -- if some strings in language file are empty, string from defaultTranslation will be used
+      translation = table.update(defaultTranslation, translation)
+    end
   end
   if table.is_empty(translation) then
       return nil, "couldn't find translations for '"..packageName.."'"
@@ -1015,3 +1021,13 @@ function packageDrop(event, fileName, suffix)
   installPackage(fileName)
 end
 registerAnonymousEventHandler("sysDropEvent", "packageDrop")
+
+-- Add dummy functions for the TTS functions if Mudlet has been compiled without them
+-- This is to prevent scripts erroring if they've been written with TTS capabilities
+-- then loaded into a Mudlet without them.
+if not ttsSpeak then --check if ttsSpeak is defined, if not then Mudlet lacks TTS capabilities.
+  local funcs = {"ttsClearQueue", "ttsGetCurrentLine", "ttsGetCurrentVoice", "ttsGetQueue", "ttsGetState", "ttsGetVoices", "ttsPause", "ttsQueue", "ttsResume", "ttsSpeak", "ttsSetPitch", "ttsSetRate", "ttsSetVolume", "ttsSetVoiceByIndex", "ttsSetVoiceByName", "ttsSkip"}
+  for _,fn in ipairs(funcs) do
+    _G[fn] = function() debugc(string.format("%s: Mudlet was compiled without TTS capabilities", fn)) end
+  end
+end
