@@ -604,6 +604,8 @@ private:
 
     const int LUA_FUNCTION_MAX_ARGS = 50;
 
+    const int LUA_FUNCTION_MAX_ARGS = 50;
+
 
     QNetworkAccessManager* mpFileDownloader;
     std::list<std::string> mCaptureGroupList;
