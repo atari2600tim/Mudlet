@@ -1704,15 +1704,30 @@ void TTextEdit::resizeEvent(QResizeEvent* event)
     QWidget::resizeEvent(event);
 }
 
+int accumulatedWheelMovement=0;
+#define SINGLE_LINE_DELTA 120 /* delta is in units of 1/8 of a degree, 8*15 = 120 */
 void TTextEdit::wheelEvent(QWheelEvent* e)
 {
-    int k = 3;
-    if (e->delta() < 0) {
+    // For demo A, I will make it so that it only moves given the data from each event.  Moving very slowly will not build up.
+    // For demo B, I will make it accumulate.  Moving slowly will accumulate.
+    //    However, it will have a new threshold amount, used to be that a tiny movement would register as long as it was enough for the Qt system to detect it.
+    //    I'm not sure if it will feel different at all, and maybe only certain OS will register smaller movements.
+    //    I assume Qt has its own threshold system, might be metadata to set up elsewhere? but for now only messing with this function.
+    int k; // how many lines to scroll
+    accumulatedWheelMovement += e->delta();
+    if(abs(accumulatedWheelMovement) < SINGLE_LINE_DELTA){ // have moved less than X amount
+        e->ignore();
+        return;
+    }
+    k = delta/(SINGLE_LINE_DELTA); // k = lines we are scrolling
+    accumulatedWheelMovement -= k*SINGLE_LINE_DELTA; // remove this movement from the accumulation preserving remainder,
+                                                     // if you move 1 1/2 times then it becomes 1/2 toward next movement
+    if (delta < 0) {
         mpConsole->scrollDown(abs(k));
         e->accept();
         return;
     }
-    if (e->delta() > 0) {
+    if (delta > 0) {
         mpConsole->scrollUp(k);
         e->accept();
         return;
