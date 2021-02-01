@@ -13142,17 +13142,21 @@ void TLuaInterpreter::ttsLocaleChanged(const QLocale &locale)
     QString currentVoice = speechUnit->voice().name();
     QVector<QVoice> speechVoices = speechUnit->availableVoices();
     int sz = speechVoices.size();
-
+qDebug() << "TIM: ttsLocaleChanged called";
+qDebug() << "TIM---: currentVoice["<<currentVoice<<"], new locale["<<locale.name()<<"], sz["<<sz<<"]";
     if (!sz) {
+qDebug() << "TIM---: !sz so returning";
         return;
     }
-        
+qDebug() << "TIM---: will do loop";
     for (auto voice : speechVoices) {
+qDebug() << "TIM---: comparing old voice name with "<<voice.name();
         if (voice.name() == currentVoice) {
+qDebug() << "TIM-----: found voice in list of voices for this locale, so doing nothing";
             return;
         }
     }
-
+qDebug() << "TIM-----: setting voice to "<<speechVoices.at(0);
     speechUnit->setVoice(speechVoices.at(0));
 
     return;
