@@ -13156,7 +13156,7 @@ qDebug() << "TIM-----: found voice in list of voices for this locale, so doing n
             return;
         }
     }
-qDebug() << "TIM-----: setting voice to "<<speechVoices.at(0);
+qDebug() << "TIM-----: setting voice to "<<speechVoices.at(0).name();
     speechUnit->setVoice(speechVoices.at(0));
 
     return;
