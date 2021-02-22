@@ -913,13 +913,17 @@ void TTextEdit::expandSelectionToWords()
 
 void TTextEdit::expandSelectionToLine(int y)
 {
+    qDebug()<<"expandSelectionToLine called, y="<<y;
     if (!(y < mpBuffer->lineBuffer.size())) {
+        qDebug()<<"  eSTL returning because y >= buffer size, which is "<<mpBuffer->lineBuffer.size();
         return;
     }
+    qDebug()<<"  eSTL-1, start is "<<mDragStart.X()<<", "<<mDragStart.Y()<<", end is "<<mDragSelectionEnd.X()<<", "<<mDragSelectionEnd.Y();
     unHighlight();
     normaliseSelection();
     mPA.setX(0);
     mpB.setX(mpBuffer->buffer[mpB.y()].size());
+    qDebug()<<"  eSTL-2, A is "<<mPA.X()<<", "<<mpA.Y()<<", B is "<<mpB.X()<<", "<<mpB.Y();
     highlightSelection();
     mMouseTracking = true;
 }
