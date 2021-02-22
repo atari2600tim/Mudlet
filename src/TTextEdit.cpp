@@ -922,8 +922,8 @@ void TTextEdit::expandSelectionToLine(int y)
     unHighlight();
     normaliseSelection();
     mPA.setX(0);
-    mpB.setX(mpBuffer->buffer[mpB.y()].size());
-    qDebug()<<"  eSTL-2, A is "<<mPA.x()<<", "<<mpA.y()<<", B is "<<mpB.x()<<", "<<mpB.y();
+    mPB.setX(mpBuffer->buffer[mPB.y()].size());
+    qDebug()<<"  eSTL-2, A is "<<mPA.x()<<", "<<mPA.y()<<", B is "<<mPB.x()<<", "<<mPB.y();
     highlightSelection();
     mMouseTracking = true;
 }
