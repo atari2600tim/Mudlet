@@ -918,7 +918,7 @@ void TTextEdit::expandSelectionToLine(int y)
         qDebug()<<"  eSTL returning because y >= buffer size, which is "<<mpBuffer->lineBuffer.size();
         return;
     }
-    qDebug()<<"  eSTL-1, start is "<<mDragStart.X()<<", "<<mDragStart.Y()<<", end is "<<mDragSelectionEnd.X()<<", "<<mDragSelectionEnd.Y();
+    qDebug()<<"  eSTL-1, start is "<<mDragStart.x()<<", "<<mDragStart.y()<<", end is "<<mDragSelectionEnd.x()<<", "<<mDragSelectionEnd.y();
     unHighlight();
     normaliseSelection();
     mPA.setX(0);
