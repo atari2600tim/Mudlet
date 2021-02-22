@@ -919,7 +919,7 @@ void TTextEdit::expandSelectionToLine(int y)
     unHighlight();
     normaliseSelection();
     mPA.setX(0);
-    mpB.setX(mpBuffer->buffer[mpB.y()].size());
+    mpB.setX(mpBuffer->buffer[mPB.y()].size());
     highlightSelection();
     mMouseTracking = true;
 }
