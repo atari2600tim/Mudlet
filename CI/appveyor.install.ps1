@@ -44,3 +44,7 @@ CheckAndInstallZziplib
 CheckAndInstallLuarocks
 CheckAndInstallPugixml
 InstallLuaModules
+
+  echo TIM  at %TIME%
+  Get-ChildItem -Path $Env:MINGW_BASE_DIR -Recurse
+  
