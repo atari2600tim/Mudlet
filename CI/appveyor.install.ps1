@@ -32,6 +32,10 @@ $NoShPath = filterPathForSh
 CheckAndInstallOpenSSL
 CheckAndInstallHunspell
 CheckAndInstallYajl
+
+echo "TIM listing files after CheckAndInstallYajl %TIME%"
+Get-ChildItem -Path $Env:MINGW_BASE_DIR -Recurse
+
 CheckAndInstallLua
 CheckAndInstallPcre
 CheckAndInstallSqlite
