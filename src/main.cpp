@@ -263,59 +263,6 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-// TODO
-// Can I support --portable and also --portable=/folder/name/here kind of thing?
-if (parser.isSet(bePortable)){ // for now do a debug message
-        texts << QCoreApplication::translate("main", "SQUIRREL!...\n");
-        texts << QCoreApplication::translate("main", "\nQDir::homePath():  ");
-        texts << QDir::homePath().toLocal8Bit().constData();
-        texts << QCoreApplication::translate("main", "\nabsoluteFilePath:  ");
-        texts << QFileInfo(QCoreApplication::applicationFilePath()).absoluteFilePath().toLocal8Bit().constData();
-        texts << QCoreApplication::translate("main", "\nabsolutePath:      ");
-        texts << QFileInfo(QCoreApplication::applicationFilePath()).absolutePath().toLocal8Bit().constData();
-        texts << QCoreApplication::translate("main", "\nbaseName (likely use this, but on Mac it might be file name within bundle?)\nbaseName: ");
-        texts << QFileInfo(QCoreApplication::applicationFilePath()).baseName().toLocal8Bit().constData();
-        texts << QCoreApplication::translate("main", "\nbundleName (Macs use this instead or in addition to baseName?)\nbundleName: ");
-        texts << QFileInfo(QCoreApplication::applicationFilePath()).bundleName().toLocal8Bit().constData();
-        texts << QCoreApplication::translate("main", "\ncanonicalFilePath: ");
-        texts << QFileInfo(QCoreApplication::applicationFilePath()).canonicalFilePath().toLocal8Bit().constData();
-        texts << QCoreApplication::translate("main", "\ncanonicalPath:     ");
-        texts << QFileInfo(QCoreApplication::applicationFilePath()).canonicalPath().toLocal8Bit().constData();
-        // dir is QDir of parent directory
-        texts << QCoreApplication::translate("main", "\nfileName:          ");
-        texts << QFileInfo(QCoreApplication::applicationFilePath()).fileName().toLocal8Bit().constData();
-        texts << QCoreApplication::translate("main", "\nfilePath:          ");
-        texts << QFileInfo(QCoreApplication::applicationFilePath()).filePath().toLocal8Bit().constData();
-
-        texts << QCoreApplication::translate("main", "\npath:              ");
-        texts << QFileInfo(QCoreApplication::applicationFilePath()).path().toLocal8Bit().constData();
-        texts << QCoreApplication::translate("main", "\nfilePath:          ");
-        texts << QFileInfo(QCoreApplication::applicationFilePath()).filePath().toLocal8Bit().constData();
-
-        texts << QCoreApplication::translate("main", "\n...SQUIRREL!\n");
-
-if (QFileInfo(QCoreApplication::applicationFilePath()).baseName().endsWith(QStringLiteral("_portable"))){
-    std::cout<<"base name ends with _portable\n";
-}else{
-    std::cout<<"base name does not end with _portable\n";
-}
-
-if (QFileInfo(QCoreApplication::applicationFilePath()).path().endsWith(QStringLiteral("_portable"))){
-    std::cout<<"folder it is in ends with _portable\n";
-}else{
-    std::cout<<"folder it is in does not end with _portable\n";
-}
-if (QFileInfo(QCoreApplication::applicationFilePath()).bundleName().endsWith(QStringLiteral("_portable"))){
-    std::cout<<"bundle name ends with _portable\n";
-}else{
-    std::cout<<"bundle name does not end with _portable\n";
-}
-
-
-        std::cout << texts.join(QString()).toStdString();
-        return 0;
-}
-
     /*******************************************************************
      * If we get to HERE then we are going to run a GUI application... *
      *******************************************************************/

@@ -3287,7 +3287,7 @@ QString mudlet::getMudletPath(const mudletPathType mode, const QString& extra1, 
         // Takes two extra arguments (profile name, package name) returns the
         // filename of the XML file that contains the (per profile, unpacked)
         // package mudlet items in that package/module:
-        return QStringLiteral("%1/.config/mudlet/profiles/%2/%3/%3.xml").arg(mudlet::homePath, extra1, extra2);
+        return QStringLiteral("%1/.config/mudlet/profiles/%2/%3/%3.xml").arg(mudlet::self()->homePath, extra1, extra2);
     case profileReplayAndLogFilesPath:
         // Takes one extra argument (profile name) that returns the directory
         // that contains replays (*.dat files) and logs (*.html or *.txt) files
