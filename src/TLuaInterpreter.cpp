@@ -5221,7 +5221,7 @@ int TLuaInterpreter::showUnzipProgress(lua_State* L)
 int TLuaInterpreter::playSoundFile(lua_State* L)
 {
     QString sound = getVerifiedString(L, __func__, 1, "fileName");
-    if (QDir::homePath().contains('\\')) {
+    if (mudlet::self()->homePath.contains('\\')) {
         sound.replace('/', R"(\)");
     } else {
         sound.replace('\\', "/");

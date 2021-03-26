@@ -135,6 +135,8 @@ QPointer<TConsole> mudlet::mpDebugConsole = nullptr;
 QPointer<QMainWindow> mudlet::mpDebugArea = nullptr;
 bool mudlet::debugMode = false;
 
+QString mudlet::homePath;
+
 const bool mudlet::scmIsReleaseVersion = QByteArray(APP_BUILD).isEmpty();
 const bool mudlet::scmIsPublicTestVersion = QByteArray(APP_BUILD).startsWith("-ptb");
 const bool mudlet::scmIsDevelopmentVersion = !mudlet::scmIsReleaseVersion && !mudlet::scmIsPublicTestVersion;
@@ -3223,79 +3225,79 @@ QString mudlet::getMudletPath(const mudletPathType mode, const QString& extra1, 
     switch (mode) {
     case mainPath:
         // The root of all mudlet data for the user - does not end in a '/'
-        return QStringLiteral("%1/.config/mudlet").arg(QDir::homePath());
+        return QStringLiteral("%1/.config/mudlet").arg(mudlet::self()->homePath);
     case mainDataItemPath:
         // Takes one extra argument as a file (or directory) relating to
         // (profile independent) mudlet data - may end with a '/' if the extra
         // argument does:
-        return QStringLiteral("%1/.config/mudlet/%2").arg(QDir::homePath(), extra1);
+        return QStringLiteral("%1/.config/mudlet/%2").arg(mudlet::self()->homePath, extra1);
     case mainFontsPath:
         // (Added for 3.5.0) a revised location to store Mudlet provided fonts
-        return QStringLiteral("%1/.config/mudlet/fonts").arg(QDir::homePath());
+        return QStringLiteral("%1/.config/mudlet/fonts").arg(mudlet::self()->homePath);
     case profilesPath:
         // The directory containing all the saved user's profiles - does not end
         // in '/'
-        return QStringLiteral("%1/.config/mudlet/profiles").arg(QDir::homePath());
+        return QStringLiteral("%1/.config/mudlet/profiles").arg(mudlet::self()->homePath);
     case profileHomePath:
         // Takes one extra argument (profile name) that returns the base
         // directory for that profile - does NOT end in a '/' unless the
         // supplied profle name does:
-        return QStringLiteral("%1/.config/mudlet/profiles/%2").arg(QDir::homePath(), extra1);
+        return QStringLiteral("%1/.config/mudlet/profiles/%2").arg(mudlet::self()->homePath, extra1);
     case profileMediaPath:
         // Takes one extra argument (profile name) that returns the directory
         // for the profile's cached media files - does NOT end in a '/'
-        return QStringLiteral("%1/.config/mudlet/profiles/%2/media").arg(QDir::homePath(), extra1);
+        return QStringLiteral("%1/.config/mudlet/profiles/%2/media").arg(mudlet::self()->homePath, extra1);
     case profileMediaPathFileName:
         // Takes two extra arguments (profile name, mediaFileName) that returns
         // the pathFile name for any media file:
-        return QStringLiteral("%1/.config/mudlet/profiles/%2/media/%3").arg(QDir::homePath(), extra1, extra2);
+        return QStringLiteral("%1/.config/mudlet/profiles/%2/media/%3").arg(mudlet::self()->homePath, extra1, extra2);
     case profileXmlFilesPath:
         // Takes one extra argument (profile name) that returns the directory
         // for the profile game save XML files - ends in a '/'
-        return QStringLiteral("%1/.config/mudlet/profiles/%2/current/").arg(QDir::homePath(), extra1);
+        return QStringLiteral("%1/.config/mudlet/profiles/%2/current/").arg(mudlet::self()->homePath, extra1);
     case profileMapsPath:
         // Takes one extra argument (profile name) that returns the directory
         // for the profile game save maps files - does NOT end in a '/'
-        return QStringLiteral("%1/.config/mudlet/profiles/%2/map").arg(QDir::homePath(), extra1);
+        return QStringLiteral("%1/.config/mudlet/profiles/%2/map").arg(mudlet::self()->homePath, extra1);
     case profileDateTimeStampedMapPathFileName:
         // Takes two extra arguments (profile name, dataTime stamp) that returns
         // the pathFile name for a dateTime stamped map file:
-        return QStringLiteral("%1/.config/mudlet/profiles/%2/map/%3map.dat").arg(QDir::homePath(), extra1, extra2);
+        return QStringLiteral("%1/.config/mudlet/profiles/%2/map/%3map.dat").arg(mudlet::self()->homePath, extra1, extra2);
     case profileMapPathFileName:
         // Takes two extra arguments (profile name, mapFileName) that returns
         // the pathFile name for any map file:
-        return QStringLiteral("%1/.config/mudlet/profiles/%2/map/%3").arg(QDir::homePath(), extra1, extra2);
+        return QStringLiteral("%1/.config/mudlet/profiles/%2/map/%3").arg(mudlet::self()->homePath, extra1, extra2);
     case profileXmlMapPathFileName:
         // Takes one extra argument (profile name) that returns the pathFile
         // name for the downloaded IRE Server provided XML map:
-        return QStringLiteral("%1/.config/mudlet/profiles/%2/map.xml").arg(QDir::homePath(), extra1);
+        return QStringLiteral("%1/.config/mudlet/profiles/%2/map.xml").arg(mudlet::self()->homePath, extra1);
     case profileDataItemPath:
         // Takes two extra arguments (profile name, data item) that gives a
         // path file name for, typically a data item stored as a single item
         // (binary) profile data) file (ideally these can be moved to a per
         // profile QSettings file but that is a future pipe-dream on my part
         // SlySven):
-        return QStringLiteral("%1/.config/mudlet/profiles/%2/%3").arg(QDir::homePath(), extra1, extra2);
+        return QStringLiteral("%1/.config/mudlet/profiles/%2/%3").arg(mudlet::self()->homePath, extra1, extra2);
     case profilePackagePath:
         // Takes two extra arguments (profile name, package name) returns the
         // per profile directory used to store (unpacked) package contents
         // - ends with a '/':
-        return QStringLiteral("%1/.config/mudlet/profiles/%2/%3/").arg(QDir::homePath(), extra1, extra2);
+        return QStringLiteral("%1/.config/mudlet/profiles/%2/%3/").arg(mudlet::self()->homePath, extra1, extra2);
     case profilePackagePathFileName:
         // Takes two extra arguments (profile name, package name) returns the
         // filename of the XML file that contains the (per profile, unpacked)
         // package mudlet items in that package/module:
-        return QStringLiteral("%1/.config/mudlet/profiles/%2/%3/%3.xml").arg(QDir::homePath(), extra1, extra2);
+        return QStringLiteral("%1/.config/mudlet/profiles/%2/%3/%3.xml").arg(mudlet::homePath, extra1, extra2);
     case profileReplayAndLogFilesPath:
         // Takes one extra argument (profile name) that returns the directory
         // that contains replays (*.dat files) and logs (*.html or *.txt) files
         // for that profile - does NOT end in '/':
-        return QStringLiteral("%1/.config/mudlet/profiles/%2/log").arg(QDir::homePath(), extra1);
+        return QStringLiteral("%1/.config/mudlet/profiles/%2/log").arg(mudlet::self()->homePath, extra1);
     case profileLogErrorsFilePath:
         // Takes one extra argument (profile name) that returns the pathFileName
         // to the map auditing report file that is appended to each time a
         // map is loaded:
-        return QStringLiteral("%1/.config/mudlet/profiles/%2/log/errors.txt").arg(QDir::homePath(), extra1);
+        return QStringLiteral("%1/.config/mudlet/profiles/%2/log/errors.txt").arg(mudlet::self()->homePath, extra1);
     case editorWidgetThemePathFile:
         // Takes two extra arguments (profile name, theme name) that returns the
         // pathFileName of the theme file used by the edbee editor - also
@@ -3303,7 +3305,7 @@ QString mudlet::getMudletPath(const mudletPathType mode, const QString& extra1, 
         // is carried internally in the resource file:
         if (extra1.compare(QStringLiteral("Mudlet.tmTheme"), Qt::CaseSensitive)) {
             // No match
-            return QStringLiteral("%1/.config/mudlet/edbee/Colorsublime-Themes-master/themes/%2").arg(QDir::homePath(), extra1);
+            return QStringLiteral("%1/.config/mudlet/edbee/Colorsublime-Themes-master/themes/%2").arg(mudlet::self()->homePath, extra1);
         } else {
             // Match - return path to copy held in resource file
             return QStringLiteral(":/edbee_defaults/Mudlet.tmTheme");
@@ -3311,11 +3313,11 @@ QString mudlet::getMudletPath(const mudletPathType mode, const QString& extra1, 
     case editorWidgetThemeJsonFile:
         // Returns the pathFileName to the external JSON file needed to process
         // an edbee editor widget theme:
-        return QStringLiteral("%1/.config/mudlet/edbee/Colorsublime-Themes-master/themes.json").arg(QDir::homePath());
+        return QStringLiteral("%1/.config/mudlet/edbee/Colorsublime-Themes-master/themes.json").arg(mudlet::self()->homePath);
     case moduleBackupsPath:
         // Returns the directory used to store module backups that is used in
         // when saving/resyncing packages/modules - ends in a '/'
-        return QStringLiteral("%1/.config/mudlet/moduleBackups/").arg(QDir::homePath());
+        return QStringLiteral("%1/.config/mudlet/moduleBackups/").arg(mudlet::self()->homePath);
     case qtTranslationsPath:
         return QLibraryInfo::location(QLibraryInfo::TranslationsPath);
     case hunspellDictionaryPath:

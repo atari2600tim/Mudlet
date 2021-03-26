@@ -175,8 +175,11 @@ int main(int argc, char* argv[])
     QCommandLineOption showVersion(QStringList() << "v" << "version", QCoreApplication::translate("main", "Display version and exit"));
     parser.addOption(showVersion);
 
-    QCommandLineOption beQuiet(QStringList() << "q" << "quiet", QCoreApplication::translate("main", "Display help and exit"));
+    QCommandLineOption beQuiet(QStringList() << "q" << "quiet", QCoreApplication::translate("main", "No splash screen on startup"));
     parser.addOption(beQuiet);
+
+    QCommandLineOption bePortable(QStringLiteral("portable"), QCoreApplication::translate("main","Use alternate settings directory based on program location"));
+    parser.addOption(bePortable);
 
     parser.parse(app->arguments());
 
@@ -189,6 +192,7 @@ int main(int argc, char* argv[])
                                                      "       -h, --help           displays this message.\n"
                                                      "       -v, --version        displays version information.\n"
                                                      "       -q, --quiet          no splash screen on startup.\n"
+                                                     "       --portable           use data folder where program is\n"
                                                      "       --profile=<profile>  additional profile to open\n\n"
                                                      "There are other inherited options that arise from the Qt Libraries which are\n"
                                                      "less likely to be useful for normal use of this application:\n")
@@ -258,6 +262,59 @@ int main(int argc, char* argv[])
         std::cout << texts.join(QString()).toStdString();
         return 0;
     }
+
+// TODO
+// Can I support --portable and also --portable=/folder/name/here kind of thing?
+if (parser.isSet(bePortable)){ // for now do a debug message
+        texts << QCoreApplication::translate("main", "SQUIRREL!...\n");
+        texts << QCoreApplication::translate("main", "\nQDir::homePath():  ");
+        texts << QDir::homePath().toLocal8Bit().constData();
+        texts << QCoreApplication::translate("main", "\nabsoluteFilePath:  ");
+        texts << QFileInfo(QCoreApplication::applicationFilePath()).absoluteFilePath().toLocal8Bit().constData();
+        texts << QCoreApplication::translate("main", "\nabsolutePath:      ");
+        texts << QFileInfo(QCoreApplication::applicationFilePath()).absolutePath().toLocal8Bit().constData();
+        texts << QCoreApplication::translate("main", "\nbaseName (likely use this, but on Mac it might be file name within bundle?)\nbaseName: ");
+        texts << QFileInfo(QCoreApplication::applicationFilePath()).baseName().toLocal8Bit().constData();
+        texts << QCoreApplication::translate("main", "\nbundleName (Macs use this instead or in addition to baseName?)\nbundleName: ");
+        texts << QFileInfo(QCoreApplication::applicationFilePath()).bundleName().toLocal8Bit().constData();
+        texts << QCoreApplication::translate("main", "\ncanonicalFilePath: ");
+        texts << QFileInfo(QCoreApplication::applicationFilePath()).canonicalFilePath().toLocal8Bit().constData();
+        texts << QCoreApplication::translate("main", "\ncanonicalPath:     ");
+        texts << QFileInfo(QCoreApplication::applicationFilePath()).canonicalPath().toLocal8Bit().constData();
+        // dir is QDir of parent directory
+        texts << QCoreApplication::translate("main", "\nfileName:          ");
+        texts << QFileInfo(QCoreApplication::applicationFilePath()).fileName().toLocal8Bit().constData();
+        texts << QCoreApplication::translate("main", "\nfilePath:          ");
+        texts << QFileInfo(QCoreApplication::applicationFilePath()).filePath().toLocal8Bit().constData();
+
+        texts << QCoreApplication::translate("main", "\npath:              ");
+        texts << QFileInfo(QCoreApplication::applicationFilePath()).path().toLocal8Bit().constData();
+        texts << QCoreApplication::translate("main", "\nfilePath:          ");
+        texts << QFileInfo(QCoreApplication::applicationFilePath()).filePath().toLocal8Bit().constData();
+
+        texts << QCoreApplication::translate("main", "\n...SQUIRREL!\n");
+
+if (QFileInfo(QCoreApplication::applicationFilePath()).baseName().endsWith(QStringLiteral("_portable"))){
+    std::cout<<"base name ends with _portable\n";
+}else{
+    std::cout<<"base name does not end with _portable\n";
+}
+
+if (QFileInfo(QCoreApplication::applicationFilePath()).path().endsWith(QStringLiteral("_portable"))){
+    std::cout<<"folder it is in ends with _portable\n";
+}else{
+    std::cout<<"folder it is in does not end with _portable\n";
+}
+if (QFileInfo(QCoreApplication::applicationFilePath()).bundleName().endsWith(QStringLiteral("_portable"))){
+    std::cout<<"bundle name ends with _portable\n";
+}else{
+    std::cout<<"bundle name does not end with _portable\n";
+}
+
+
+        std::cout << texts.join(QString()).toStdString();
+        return 0;
+}
 
     /*******************************************************************
      * If we get to HERE then we are going to run a GUI application... *
@@ -343,6 +400,33 @@ int main(int argc, char* argv[])
     }
     app->processEvents();
 
+    bool portable = false;
+    if (parser.isSet(bePortable)){
+       qDebug() << "Portable mode enabled because --portable used on command line";
+       portable = true;
+    }
+    if (QFileInfo(QCoreApplication::applicationFilePath()).baseName().endsWith(QStringLiteral("_portable"))){
+        qDebug() << "Base name of program ends with _portable";
+        portable = true;
+    }
+
+    if (QFileInfo(QCoreApplication::applicationFilePath()).path().endsWith(QStringLiteral("_portable"))){
+        qDebug() << "Parent folder of program ends with _portable";
+        portable = true;
+    }
+    if (QFileInfo(QCoreApplication::applicationFilePath()).bundleName().endsWith(QStringLiteral("_portable"))){
+        qDebug() << "Bundle name ends with _portable";
+        portable = true;
+    }
+  
+    if(portable){ // if portable then 'homePath' which is normally user folder will instead be folder where mudlet is stored
+        mudlet::self()->homePath = QFileInfo(QCoreApplication::applicationFilePath()).path();
+        qDebug().nospace().noquote() << "Using alternate home folder: " << mudlet::self()->homePath;
+    }
+    else {
+        mudlet::self()->homePath = QDir::homePath();
+    }
+
     QString homeDirectory = mudlet::getMudletPath(mudlet::mainPath);
     QDir dir;
     bool first_launch = false;
@@ -425,7 +509,7 @@ int main(int argc, char* argv[])
 
     mudlet::debugMode = false;
 
-    QString homeLink = QStringLiteral("%1/mudlet-data").arg(QDir::homePath());
+    QString homeLink = QStringLiteral("%1/mudlet-data").arg(mudlet::self()->homePath);
 #if defined(Q_OS_WIN32)
     /*
      * From Qt Documentation for:
@@ -439,7 +523,7 @@ int main(int argc, char* argv[])
      * does not mention this particular restriction it is not unreasonable to
      * assume the same condition applies...
      */
-    QString homeLinkWindows = QStringLiteral("%1/mudlet-data.lnk").arg(QDir::homePath());
+    QString homeLinkWindows = QStringLiteral("%1/mudlet-data.lnk").arg(mudlet::self()->homePath);
     QFile oldLinkFile(homeLink);
     if (oldLinkFile.exists()) {
         // A One-time fix up past error that did not include the ".lnk" extension

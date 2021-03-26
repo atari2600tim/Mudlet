@@ -3531,7 +3531,7 @@ bool Host::setBackgroundImage(const QString& name, QString& imgPath, int mode)
         return false;
     }
 
-    if (QDir::homePath().contains('\\')) {
+    if (mudlet::self()->homePath.contains('\\')) {
         imgPath.replace('/', R"(\)");
     } else {
         imgPath.replace('\\', "/");

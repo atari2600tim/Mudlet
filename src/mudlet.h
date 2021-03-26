@@ -331,6 +331,7 @@ public:
     int mToolbarIconSize;
     int mEditorTreeWidgetIconSize;
     bool mWindowMinimized;
+    static QString homePath;
 
     // used by developers in everyday coding
     static const bool scmIsDevelopmentVersion;

@@ -8267,7 +8267,7 @@ void dlgTriggerEditor::slot_profileSaveAction()
 void dlgTriggerEditor::slot_profileSaveAsAction()
 {
     mSavingAs = true;
-    QString fileName = QFileDialog::getSaveFileName(this, tr("Backup Profile"), QDir::homePath(), tr("trigger files (*.trigger *.xml)"));
+    QString fileName = QFileDialog::getSaveFileName(this, tr("Backup Profile"), mudlet::self()->homePath, tr("trigger files (*.trigger *.xml)"));
 
     if (fileName.isEmpty()) {
         return;
