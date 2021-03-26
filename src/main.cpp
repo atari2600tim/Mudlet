@@ -348,25 +348,23 @@ int main(int argc, char* argv[])
     app->processEvents();
 
     bool portable = false;
-    if (parser.isSet(bePortable)){
+    if (parser.isSet(bePortable)) {
        qDebug() << "Portable mode enabled because --portable used on command line";
        portable = true;
     }
-    if (QFileInfo(QCoreApplication::applicationFilePath()).baseName().endsWith(QStringLiteral("_portable"))){
+    if (QFileInfo(QCoreApplication::applicationFilePath()).baseName().endsWith(QStringLiteral("_portable"))) {
         qDebug() << "Base name of program ends with _portable";
         portable = true;
     }
-
-    if (QFileInfo(QCoreApplication::applicationFilePath()).path().endsWith(QStringLiteral("_portable"))){
+    if (QFileInfo(QCoreApplication::applicationFilePath()).path().endsWith(QStringLiteral("_portable"))) {
         qDebug() << "Parent folder of program ends with _portable";
         portable = true;
     }
-    if (QFileInfo(QCoreApplication::applicationFilePath()).bundleName().endsWith(QStringLiteral("_portable"))){
+    if (QFileInfo(QCoreApplication::applicationFilePath()).bundleName().endsWith(QStringLiteral("_portable"))) {
         qDebug() << "Bundle name ends with _portable";
         portable = true;
     }
-  
-    if(portable){ // if portable then 'homePath' which is normally user folder will instead be folder where mudlet is stored
+    if (portable) { // if portable then 'homePath' which is normally user folder will instead be folder where mudlet is stored
         mudlet::self()->homePath = QFileInfo(QCoreApplication::applicationFilePath()).path();
         qDebug().nospace().noquote() << "Using alternate home folder: " << mudlet::self()->homePath;
     }
