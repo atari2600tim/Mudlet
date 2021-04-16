@@ -1248,9 +1248,18 @@ void T2DMap::paintEvent(QPaintEvent* e)
         auto font(painter.font());
         font.setPointSize(10);
         painter.setFont(font);
-        auto message = mpMap->mpRoomDB
-                ? tr("You have a map loaded (%n room(s)), but Mudlet does not know where you are at the moment.", "", mpMap->mpRoomDB->size())
-                : tr("You do not have a map yet - load one, or start mapping from scratch to begin.");
+
+        QString message;
+        if (mpMap->mpRoomDB) {
+            if (mpMap->mpRoomDB->isEmpty()) {
+                message = tr("No rooms in the map - load another one, or start mapping from scratch to begin.");
+            } else {
+                message = tr("You have a map loaded (%n room(s)), but Mudlet does not know where you are at the moment.", "", mpMap->mpRoomDB->size());
+            }
+        } else {
+            message = tr("You do not have a map yet - load one, or start mapping from scratch to begin.");
+        }
+
         painter.drawText(0, 0, widgetWidth, widgetHeight, Qt::AlignCenter | Qt::TextWordWrap, message);
         painter.restore();
         return;
@@ -2214,7 +2223,11 @@ void T2DMap::paintMapInfo(const QElapsedTimer& renderTimer, QPainter& painter, c
         }
     }
 
-    TRoom* room = mpMap->mpRoomDB->getRoom(roomID);
+    TRoom* pRoom = mpMap->mpRoomDB->getRoom(roomID);
+    if (!pRoom) {
+        // Can't call pRoom->getArea() further down without a valid pRoom!
+        return;
+    }
     int yOffset = 20;
     // Left margin for info widget:
     int xOffset = 10;
@@ -2227,7 +2240,7 @@ void T2DMap::paintMapInfo(const QElapsedTimer& renderTimer, QPainter& painter, c
 
     for (const auto& key : mpMap->mMapInfoContributorManager->getContributorKeys()) {
         if (mpHost->mMapInfoContributors.contains(key)) {
-            auto properties = mpMap->mMapInfoContributorManager->getContributor(key)(roomID, mMultiSelectionSet.size(), room->getArea(), displayAreaId, infoColor);
+            auto properties = mpMap->mMapInfoContributorManager->getContributor(key)(roomID, mMultiSelectionSet.size(), pRoom->getArea(), displayAreaId, infoColor);
             if (!properties.color.isValid()) {
                 properties.color = infoColor;
             }
@@ -4238,7 +4251,7 @@ void T2DMap::mouseMoveEvent(QMouseEvent* event)
     //FIXME:
     if (mLabelHighlighted) {
         auto pA = mpMap->mpRoomDB->getArea(mAreaID);
-        if (!pA->mMapLabels.isEmpty()) {
+        if (pA && !pA->mMapLabels.isEmpty()) {
             bool needUpdate = false;
             QMapIterator<int, TMapLabel> itMapLabel(pA->mMapLabels);
             while (itMapLabel.hasNext()) {
