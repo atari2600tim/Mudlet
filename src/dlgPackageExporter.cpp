@@ -55,7 +55,6 @@ dlgPackageExporter::dlgPackageExporter(QWidget *parent, Host* pHost)
 {
     ui->setupUi(this);
     ui->splitter_metadataAssets->hide();
-    //    ui->splitter_metadata->setSizes({})
     ui->Icon->hide();
 
     mpExportSelection = ui->treeWidget_exportSelection;
@@ -307,12 +306,14 @@ void dlgPackageExporter::slot_packageChanged(int index)
 void dlgPackageExporter::slot_updateLocationPlaceholder()
 {
     const auto packageName = ui->lineEdit_packageName->text();
+    QString path;
     if (packageName.isEmpty()) {
-        ui->lineEdit_filePath->setPlaceholderText(tr("Export to %1").arg(getActualPath()));
-        return;
+        path = tr("Export to %1").arg(getActualPath());
+    } else {
+        path = tr("Export to %1").arg(QStringLiteral("%1/%2.mpackage").arg(getActualPath(), packageName));
     }
 
-    ui->lineEdit_filePath->setPlaceholderText(tr("Export to %1/%2.mpackage").arg(getActualPath(), packageName));
+    ui->lineEdit_filePath->setPlaceholderText(path);
 }
 
 void dlgPackageExporter::slot_enableExportButton(const QString& text)
@@ -499,19 +500,19 @@ void dlgPackageExporter::slot_export_package()
 
     if (!imageList.isEmpty()) {
         //Create description image dir
-        QString descriptionImageDirName = QStringLiteral("%1.mudlet/description_images/").arg(tempPath);
-        QDir descriptionImageDir = QDir(descriptionImageDirName);
+        QString descriptionImagesDirName = QStringLiteral("%1.mudlet/description_images/").arg(tempPath);
+        QDir descriptionImageDir = QDir(descriptionImagesDirName);
         if (!descriptionImageDir.exists()) {
-            descriptionImageDir.mkpath(descriptionImageDirName);
+            descriptionImageDir.mkpath(descriptionImagesDirName);
         }
         for (int i = imageList.size() - 1; i >= 0; i--) {
             QFileInfo imageFile(imageList.at(i));
             if (imageFile.exists()) {
-                QString imageDir = descriptionImageDirName;
+                QString imageDir = descriptionImagesDirName;
                 imageDir.append(imageFile.fileName());
                 QFile::copy(imageFile.absoluteFilePath(), imageDir);
             }
-            //replace $Imageindex with $packagePath in description file
+            //replace temporary path with the path that is now inside the package
             plainDescription.replace(QStringLiteral("$%1").arg(imageFile.fileName()), QStringLiteral("$packagePath/.mudlet/description_images/%1").arg(imageFile.fileName()));
         }
     }
@@ -528,7 +529,7 @@ void dlgPackageExporter::slot_export_package()
 
     mXmlPathFileName = QStringLiteral("%1/%2.xml").arg(stagingDirName, mPackageName);
 
-    writeConfigFile(stagingDirName, iconFile);
+    writeConfigFile(stagingDirName, iconFile, plainDescription);
 
     QFile checkWriteability(mXmlPathFileName);
     if (!checkWriteability.open(QIODevice::WriteOnly)) {
@@ -738,7 +739,7 @@ void dlgPackageExporter::exportXml(bool& isOk,
         // seen the error message...
     }
 }
-void dlgPackageExporter::writeConfigFile(const QString& stagingDirName, const QFileInfo& iconFile)
+void dlgPackageExporter::writeConfigFile(const QString& stagingDirName, const QFileInfo& iconFile, const QString& packageDescription)
 {
     QStringList dependencies;
     for (int index = 0; index < ui->comboBox_dependencies->count(); index++) {
@@ -750,7 +751,7 @@ void dlgPackageExporter::writeConfigFile(const QString& stagingDirName, const QF
     appendToConfigFile(mPackageConfig, QStringLiteral("author"), ui->lineEdit_author->text());
     appendToConfigFile(mPackageConfig, QStringLiteral("icon"), iconFile.fileName());
     appendToConfigFile(mPackageConfig, QStringLiteral("title"), ui->lineEdit_title->text());
-    appendToConfigFile(mPackageConfig, QStringLiteral("description"), mPlainDescription);
+    appendToConfigFile(mPackageConfig, QStringLiteral("description"), packageDescription);
     appendToConfigFile(mPackageConfig, QStringLiteral("version"), ui->lineEdit_version->text());
     appendToConfigFile(mPackageConfig, QStringLiteral("dependencies"), dependencies.join(","));
     QDateTime iso8601timestamp = QDateTime::currentDateTime();
@@ -797,7 +798,7 @@ std::pair<bool, QString> dlgPackageExporter::copyAssetsToTmp(const QStringList& 
             QFile::remove(filePath);
             QFile::copy(asset.absoluteFilePath(), filePath);
         } else if (asset.isDir()) {
-            copy_directory(asset.absoluteFilePath(), filePath, true);
+            copy_directory(asset.absoluteFilePath(), filePath, false);
         }
     }
 
@@ -978,7 +979,7 @@ dlgPackageExporter::zipPackage(const QString& stagingDirName, const QString& pac
                 return {false, tr("Export cancelled.")};
             }
 
-            QString errorMsg = tr("Failed zip up the package. Error is: \"%1\".",
+            QString errorMsg = tr("Failed to zip up the package. Error is: \"%1\".",
                                   // Intentional comment to separate arguments
                                   "This error message is displayed at the final stage of exporting a package when all the sourced files are finally put into the archive. Unfortunately this may be "
                                   "the point at which something breaks because a problem was not spotted/detected in the process earlier...")
