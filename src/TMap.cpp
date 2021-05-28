@@ -1480,9 +1480,13 @@ bool TMap::restore(QString location, bool downloadIfNotFound)
     }
 
     bool canRestore = true;
+    if (entries.empty() && location.isEmpty()) {
+        canRestore = false;
+    }
+
     QDataStream ifs;
     QFile file;
-    if (!entries.empty() || !location.isEmpty()) {
+    if (canRestore && (!entries.empty() || !location.isEmpty())) {
         // We get to here if there is one or more entries OR location is
         // supplied - if the latter then there is only one file to consider but
         // if the former we may have to check more than one to find a valid
@@ -1517,11 +1521,16 @@ bool TMap::restore(QString location, bool downloadIfNotFound)
 
            // Allow for somethings to be updated - especially on Windows?
            qApp->processEvents();
+        } else {
+            file.setFileName(location);
+            if (validatePotentialMapFile(file, ifs)) {
+                foundValidFile = true;
+            }
         }
         if (!foundValidFile) {
             canRestore = false;
         }
-    } else {
+    } else if (canRestore && !location.isEmpty()) {
         file.setFileName(location);
         canRestore = validatePotentialMapFile(file, ifs);
     }
