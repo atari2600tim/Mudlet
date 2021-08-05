@@ -822,6 +822,8 @@ void mudlet::loadMaps()
                                   {QStringLiteral("eu"), tr("Basque")},
                                   {QStringLiteral("eu_es"), tr("Basque (Spain)")},
                                   {QStringLiteral("eu_fr"), tr("Basque (France)")},
+                                  {QStringLiteral("fi"), tr("Finnish")},
+                                  {QStringLiteral("fi_fi"), tr("Finnish")},
                                   {QStringLiteral("fr"), tr("French")},
                                   {QStringLiteral("fr_be"), tr("French (Belgium)")},
                                   {QStringLiteral("fr_ca"), tr("French (Catalan)")},
@@ -1094,6 +1096,8 @@ void mudlet::scanForMudletTranslations(const QString& path)
                 currentTranslation.mNativeName = QStringLiteral("Português (Brasil)");
             } else if (!languageCode.compare(QLatin1String("tr_TR"), Qt::CaseInsensitive)) {
                 currentTranslation.mNativeName = QStringLiteral("Türkçe");
+            } else if (!languageCode.compare(QLatin1String("fi_FI"), Qt::CaseInsensitive)) {
+                currentTranslation.mNativeName = QStringLiteral("Suomeksi");
             } else {
                 currentTranslation.mNativeName = languageCode;
             }
@@ -2268,7 +2272,7 @@ void mudlet::slot_show_help_dialog_forum()
 
 void mudlet::slot_show_help_dialog_irc()
 {
-    QDesktopServices::openUrl(QUrl("https://webchat.freenode.net/?channels=mudlet"));
+    QDesktopServices::openUrl(QUrl("https://web.libera.chat/?channel=#mudlet"));
 }
 
 void mudlet::slot_mapper()
