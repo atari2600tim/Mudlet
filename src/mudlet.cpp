@@ -1929,9 +1929,8 @@ void mudlet::setMenuBarVisibility(const controlsVisibility state)
 // This only adjusts the visibility as appropriate
 void mudlet::adjustMenuBarVisibility()
 {
-    // Are there any profiles loaded?
-    if ((mHostManager.getHostCount() && mMenuBarVisibility & visibleAlways)
-            || (mMenuBarVisibility & visibleMaskNormally)) {
+    const int hostCount = mHostManager.getHostCount();
+    if ((hostCount < 1 && (mMenuBarVisibility & visibleAlways)) || (hostCount >= 1 && (mMenuBarVisibility & visibleMaskNormally))) {
         menuBar()->show();
     } else {
         menuBar()->hide();
@@ -1954,8 +1953,8 @@ void mudlet::slot_handleToolbarVisibilityChanged(bool isVisible)
 {
     if (!isVisible && mMenuBarVisibility == visibleNever) {
         // Only need to worry about it DIS-appearing if the menu bar is not showing
-        int hostCount = mHostManager.getHostCount();
-        if ((hostCount < 2 && (mToolbarVisibility & visibleAlways)) || (hostCount >= 2 && (mToolbarVisibility & visibleMaskNormally))) {
+        const int hostCount = mHostManager.getHostCount();
+        if ((hostCount < 1 && (mToolbarVisibility & visibleAlways)) || (hostCount >= 1 && (mToolbarVisibility & visibleMaskNormally))) {
             mpMainToolBar->show();
         }
     }
@@ -1963,9 +1962,8 @@ void mudlet::slot_handleToolbarVisibilityChanged(bool isVisible)
 
 void mudlet::adjustToolBarVisibility()
 {
-    // Are there any profiles loaded?
-    if ((mHostManager.getHostCount() && mToolbarVisibility & visibleAlways)
-            || (mToolbarVisibility & visibleMaskNormally)) {
+    const int hostCount = mHostManager.getHostCount();
+    if ((hostCount < 1 && (mToolbarVisibility & visibleAlways)) || (hostCount >= 1 && (mToolbarVisibility & visibleMaskNormally))) {
         mpMainToolBar->show();
     } else {
         mpMainToolBar->hide();

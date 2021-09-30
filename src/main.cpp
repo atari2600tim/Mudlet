@@ -180,6 +180,8 @@ int main(int argc, char* argv[])
 
     QCommandLineOption bePortable(QStringLiteral("portable"), QCoreApplication::translate("main","Use alternate settings directory based on program location"));
     parser.addOption(bePortable);
+    QCommandLineOption mirrorToStdout(QStringList() << "m" << "mirror", QCoreApplication::translate("main", "Mirror output of all consoles to STDOUT"));
+    parser.addOption(mirrorToStdout);
 
     parser.parse(app->arguments());
 
@@ -509,6 +511,7 @@ int main(int argc, char* argv[])
         splash.finish(mudlet::self());
     }
 
+    mudlet::self()->mMirrorToStdOut = parser.isSet(mirrorToStdout);
     mudlet::self()->show();
 
     mudlet::self()->startAutoLogin(cliProfile);
