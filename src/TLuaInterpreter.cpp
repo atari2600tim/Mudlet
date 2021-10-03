@@ -11148,9 +11148,32 @@ int TLuaInterpreter::ttsSkip(lua_State* L)
 {
     Q_UNUSED(L)
     TLuaInterpreter::ttsBuild();
-
-    speechUnit->stop();
-
+    /* TIM
+      speechUnit is a QTextToSpeech  https://doc.qt.io/qt-5/qtexttospeech.html
+      speechState is an enum https://doc.qt.io/qt-5/qtexttospeech.html#State-enum
+      bSpeechQueueing is a bool that says there is a queue I think, same as function?
+      Now, the instance that I want to consider is https://github.com/Mudlet/Mudlet/issues/4737 
+      You put ten lines on the queue, and skip twice... it stops instead of starting line 3.
+      On Linux it is fine but on Windows there is problem.
+      I think there is a point where it is not speaking but has some queued up, and calling
+      stop() at that point will have a problem.
+      Anyway, I suspect that this can be state=ready not speaking but have something in queue,
+      in which case just pop off from queue?
+      I will upload this and let the cloud build it to see debug messages first.
+    */
+    qDebug()<<"TIM --- ttsSkip was called";
+    qDebug()<<"  speechState (0=ready,1=speaking,2=paused,3=backendError) ="<<speechState;
+    qDebug()<<"  speechQueue.empty()="<<speechQueue.empty();
+    qDebug()<<"  speechQueue.size()="<<speechQueue.size();
+    qDebug()<<"  bSpeechQueueing = "<<bSpeechQueueing;
+    if(bSpeechQueueing){ // maybe check multiple things, queue and not playing, or ready and queue
+        qDebug()<<"     inside of if statement; there is some queued";
+        //proposal: take one from queue and toss it
+    } else {
+        qDebug()<<"     inside of else statement; there is not some queued";
+        //proposal: speechUnit->stop();
+    }
+    speechUnit->stop(); // proposal: move this to above
     return 0;
 }
 
