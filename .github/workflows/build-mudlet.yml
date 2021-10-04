@@ -341,6 +341,15 @@ jobs:
       run: curl -X POST "https://make.mudlet.org/snapshots/gha_queue.php?artifact_name=${{env.UPLOAD_FILENAME}}&unzip=1"
       shell: bash
 
+    - name: Upload artifact for Tim
+      uses: actions/upload-artifact@v2
+      if: runner.os == 'Windows'
+      with:
+        name: tim_build
+        path: ${{github.workspace}}
+
+
+
     # we need to be in the right place for LuaGlobals.lua to load
     - name: Prep binary for running tests
       if: matrix.run_tests == 'true'
