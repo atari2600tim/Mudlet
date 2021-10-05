@@ -10019,6 +10019,36 @@ int TLuaInterpreter::setDiscordApplicationID(lua_State* L)
     return warnArgumentValue(L, __func__, QStringLiteral("'%1' can not be converted to the expected numeric Discord application id").arg(inputText));
 }
 
+// Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#setDiscordInviteURL
+int TLuaInterpreter::setDiscordInviteURL(lua_State* L)
+{
+    mudlet* pMudlet = mudlet::self();
+    auto& host = getHostFromLua(L);
+
+    auto result = discordApiEnabled(L, true);
+    if (!result.first) {
+        return warnArgumentValue(L, __func__, result.second);
+    }
+
+    if (!lua_gettop(L)) {
+        host->setDiscordInviteURL(QString());
+        lua_pushboolean(L, true);
+        return 1;
+    }
+    QString inputText = getVerifiedString(L, __func__, 1, "url").trimmed();
+    if (inputText.isEmpty()) {
+        // Empty string input - to reset to default the same as the no
+        // argument case:
+        host->setDiscordInviteURL(QString());
+        // This must always succeed
+        lua_pushboolean(L, true);
+        return 1;
+    }
+    host->setDiscordInviteURL(inputText);
+    lua_pushboolean(L, true);
+    return 1;
+}
+
 // Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#usingMudletsDiscordID
 int TLuaInterpreter::usingMudletsDiscordID(lua_State* L)
 {

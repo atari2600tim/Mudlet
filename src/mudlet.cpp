@@ -2354,7 +2354,12 @@ void mudlet::slot_irc()
 
 void mudlet::slot_discord()
 {
-    openWebPage(mMudletDiscordInvite);
+    Host* pHost = getActiveHost();
+    QString invite;
+    if (pHost) {
+        invite = pHost->getDiscordInviteURL();
+    }
+    openWebPage(invite.isEmpty() ? mMudletDiscordInvite : invite);
 }
 
 void mudlet::slot_reconnect()
