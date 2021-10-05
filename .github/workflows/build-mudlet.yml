@@ -346,7 +346,7 @@ jobs:
       if: runner.os == 'Windows'
       with:
         name: tim_build
-        path: ${{github.workspace}}
+        path: ${{github.workspace}}/src/release/
 
 
 
