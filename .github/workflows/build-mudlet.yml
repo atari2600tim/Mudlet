@@ -341,12 +341,33 @@ jobs:
       run: curl -X POST "https://make.mudlet.org/snapshots/gha_queue.php?artifact_name=${{env.UPLOAD_FILENAME}}&unzip=1"
       shell: bash
 
-    - name: Upload artifact for Tim
+    - name: Upload artifact for Tim A
       uses: actions/upload-artifact@v2
       if: runner.os == 'Windows'
       with:
-        name: tim_build
-        path: ${{github.workspace}}/src/release/
+        name: tim_buildA
+        path: ${{github.workspace}}\src\release\
+
+    - name: Upload artifact for Tim B
+      uses: actions/upload-artifact@v2
+      if: runner.os == 'Windows'
+      with:
+        name: tim_buildB
+        path: ${{github.workspace}}\src\
+        
+    - name: Upload artifact for Tim C
+      uses: actions/upload-artifact@v2
+      if: runner.os == 'Windows'
+      with:
+        name: tim_buildC
+        path: ${{github.workspace}}\build\
+        
+    - name: Upload artifact for Tim D
+      uses: actions/upload-artifact@v2
+      if: runner.os == 'Windows'
+      with:
+        name: tim_buildD
+        path: ${{github.workspace}}\src\build\
 
 
 
