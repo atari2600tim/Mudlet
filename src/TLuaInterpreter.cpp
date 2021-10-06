@@ -10031,7 +10031,7 @@ int TLuaInterpreter::setDiscordInviteURL(lua_State* L)
     }
 
     if (!lua_gettop(L)) {
-        //host->setDiscordInviteURL(QString());
+        host.setDiscordInviteURL(QString());
         lua_pushboolean(L, true);
         return 1;
     }
@@ -10039,12 +10039,12 @@ int TLuaInterpreter::setDiscordInviteURL(lua_State* L)
     if (inputText.isEmpty()) {
         // Empty string input - to reset to default the same as the no
         // argument case:
-        //host->setDiscordInviteURL(QString());
+        host.setDiscordInviteURL(QString());
         // This must always succeed
         lua_pushboolean(L, true);
         return 1;
     }
-    //host->setDiscordInviteURL(inputText);
+    host.setDiscordInviteURL(inputText);
     lua_pushboolean(L, true);
     return 1;
 }
