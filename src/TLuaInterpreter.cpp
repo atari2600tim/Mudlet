@@ -14054,6 +14054,7 @@ void TLuaInterpreter::initLuaGlobals()
     lua_register(pGlobalLua, "getAvailableFonts", TLuaInterpreter::getAvailableFonts);
     lua_register(pGlobalLua, "tempAnsiColorTrigger", TLuaInterpreter::tempAnsiColorTrigger);
     lua_register(pGlobalLua, "setDiscordApplicationID", TLuaInterpreter::setDiscordApplicationID);
+    lua_register(pGlobalLua, "setDiscordInviteURL", TLuaInterpreter::setDiscordInviteURL);
     lua_register(pGlobalLua, "usingMudletsDiscordID", TLuaInterpreter::usingMudletsDiscordID);
     lua_register(pGlobalLua, "setDiscordState", TLuaInterpreter::setDiscordState);
     lua_register(pGlobalLua, "setDiscordGame", TLuaInterpreter::setDiscordGame);
