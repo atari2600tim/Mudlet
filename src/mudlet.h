@@ -518,6 +518,7 @@ public slots:
     void slot_close_profile_requested(int);
     void slot_irc();
     void slot_discord();
+    void slot_mudlet_discord();
     void slot_package_manager();
     void slot_package_exporter();
     void slot_module_manager();
@@ -657,6 +658,7 @@ private:
     QPointer<QAction> mpActionFullScreenView;
     QPointer<QAction> mpActionHelp;
     QPointer<QAction> mpActionDiscord;
+    QPointer<QAction> mpActionMudletDiscord;
     QPointer<QAction> mpActionIRC;
     QPointer<QToolButton> mpButtonDiscord;
     QPointer<QAction> mpActionKeys;
