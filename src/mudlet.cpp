@@ -2379,6 +2379,11 @@ void mudlet::slot_discord()
     openWebPage(invite.isEmpty() ? mMudletDiscordInvite : invite);
 }
 
+void mudlet::slot_mudlet_discord()
+{
+    openWebPage(mMudletDiscordInvite);
+}
+
 void mudlet::slot_reconnect()
 {
     Host* pHost = getActiveHost();
