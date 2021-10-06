@@ -10027,6 +10027,7 @@ int TLuaInterpreter::setDiscordInviteURL(lua_State* L)
 
     if (!lua_gettop(L)) {
         host.setDiscordInviteURL(QString());
+        pMudlet->toggleMudletDiscordVisible(false);
         lua_pushboolean(L, true);
         return 1;
     }

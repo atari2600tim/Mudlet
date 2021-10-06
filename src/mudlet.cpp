@@ -2385,7 +2385,9 @@ void mudlet::slot_mudlet_discord()
 }
 
 void mudlet::toggleMudletDiscordVisible(bool vis){
-    mpActionMudletDiscord->setVisible(vis);
+    if ( mpActionMudletDiscord->isVisible() != vis ) {
+        mpActionMudletDiscord->setVisible(vis);
+    }
 }
 
 void mudlet::slot_reconnect()
