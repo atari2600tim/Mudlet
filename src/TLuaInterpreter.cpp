@@ -10018,7 +10018,7 @@ int TLuaInterpreter::setDiscordApplicationID(lua_State* L)
     }
     return warnArgumentValue(L, __func__, QStringLiteral("'%1' can not be converted to the expected numeric Discord application id").arg(inputText));
 }
-/* sketchy part, the Lua*/
+
 // Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#setDiscordInviteURL
 int TLuaInterpreter::setDiscordInviteURL(lua_State* L)
 {
