@@ -1424,7 +1424,7 @@ void mudlet::slot_tab_changed(int tabID)
 
     // If game has custom invite then make secondary Discord option visible.
     bool isVis = mpActionMudletDiscord->isVisible();
-    if ( mpCurrentActiveHost->getDiscordInviteURL().isEmpty && isVis ) {
+    if ( mpCurrentActiveHost->getDiscordInviteURL().isEmpty() && isVis ) {
         mpActionMudletDiscord->setVisible(false);
     } else if ( !isVis ) {
         mpActionMudletDiscord->setVisible(true);
