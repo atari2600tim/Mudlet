@@ -2384,6 +2384,10 @@ void mudlet::slot_mudlet_discord()
     openWebPage(mMudletDiscordInvite);
 }
 
+void mudlet::toggleMudletDiscordVisible(bool vis){
+    mpActionMudletDiscord->setVisible(vis);
+}
+
 void mudlet::slot_reconnect()
 {
     Host* pHost = getActiveHost();

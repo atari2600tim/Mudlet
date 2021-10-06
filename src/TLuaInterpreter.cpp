@@ -10035,11 +10035,12 @@ int TLuaInterpreter::setDiscordInviteURL(lua_State* L)
         // Empty string input - to reset to default the same as the no
         // argument case:
         host.setDiscordInviteURL(QString());
-        // This must always succeed
+        pMudlet->toggleMudletDiscordVisible(false);
         lua_pushboolean(L, true);
         return 1;
     }
     host.setDiscordInviteURL(inputText);
+    pMudlet->toggleMudletDiscordVisible(true);
     lua_pushboolean(L, true);
     return 1;
 }
