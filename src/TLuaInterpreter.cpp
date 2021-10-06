@@ -10025,11 +10025,6 @@ int TLuaInterpreter::setDiscordInviteURL(lua_State* L)
     mudlet* pMudlet = mudlet::self();
     auto& host = getHostFromLua(L);
 
-    auto result = discordApiEnabled(L, true);
-    if (!result.first) {
-        return warnArgumentValue(L, __func__, result.second);
-    }
-
     if (!lua_gettop(L)) {
         host.setDiscordInviteURL(QString());
         lua_pushboolean(L, true);
