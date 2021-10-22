@@ -670,7 +670,7 @@ private:
 
     int mHostID;
     QString mHostName;
-    QString mDiscordGameName; // Discord Rich Presence self-reported game name
+    QString mDiscordGameName; // Discord self-reported game name
 
     bool mIsClosingDown;
 
