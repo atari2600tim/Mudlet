@@ -486,7 +486,7 @@ void TArea::removeRoom(int room, bool isToDeferAreaRelatedRecalculations)
     QElapsedTimer timer;
     timer.start();
 
-    // Will use to flag whether some things have to be recalcuated.
+    // Will use to flag whether some things have to be recalculated.
     bool isOnExtreme = false;
     if (rooms.contains(room) && !isToDeferAreaRelatedRecalculations) {
         // just a check, if the area DOESN'T have the room then it is not wise
@@ -639,7 +639,6 @@ void TArea::writeJsonArea(QJsonArray& array) const
     }
     QJsonValue roomsValue{roomsArray};
     areaObj.insert(QLatin1String("rooms"), roomsValue);
-    mpMap->getCurrentProgressRoomCount();
 
     // Process the labels after the rooms so that the first area shows something
     // quickly (from the rooms) even if it has a number of labels to do.
@@ -701,7 +700,6 @@ void TArea::writeJsonUserData(QJsonObject& obj) const
 // Takes a userData object and parses all its elements
 void TArea::readJsonUserData(const QJsonObject& obj)
 {
-    QMap<QString, QString> results;
     if (obj.isEmpty()) {
         // Skip doing anything more if there is nothing to do:
         return;
@@ -926,7 +924,7 @@ QList<QByteArray> TArea::convertImageToBase64Data(const QPixmap& pixmap) const
     QBuffer imageInputBuffer;
 
     imageInputBuffer.open(QIODevice::WriteOnly);
-    // Go for maximum compresssion - for the smallest amount of data, the second
+    // Go for maximum compression - for the smallest amount of data, the second
     // argument is a const char[] so does not require a QString wrapper:
     pixmap.save(&imageInputBuffer, "PNG", 0);
     QBuffer imageOutputBuffer;
