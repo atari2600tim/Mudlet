@@ -164,7 +164,7 @@ static const char *bad_cmdline_value = "command line \"%s\" not found";
 
 #define COMMANDLINE(_L, _name)                                                                 \
     ({                                                                                         \
-        const QString name_ = (_name);                                                         \
+        const QString& name_ = (_name);                                                        \
         auto console_ = getHostFromLua(_L).mpConsole;                                          \
         auto cmdLine_ = isMain(name_) ? &*console_->mpCommandLine                              \
                                     : console_->mSubCommandLineMap.value(name_);               \
@@ -10019,6 +10019,42 @@ int TLuaInterpreter::setDiscordApplicationID(lua_State* L)
     return warnArgumentValue(L, __func__, QStringLiteral("'%1' can not be converted to the expected numeric Discord application id").arg(inputText));
 }
 
+// Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#setDiscordGameUrl
+int TLuaInterpreter::setDiscordGameUrl(lua_State* L)
+{
+    // The invite URL changes what the Discord button opens, and the name is
+    // what it displays on the button. It is not part of rich presence, so it
+    // does not have the API enabled check that those Discord functions need
+    // in order to respect privacy.
+    mudlet* pMudlet = mudlet::self();
+    auto& host = getHostFromLua(L);
+    bool isActiveHost = (pMudlet->mpCurrentActiveHost == &host);
+    int args = lua_gettop(L);
+
+    if (!args) { // no args, blank the invite URL and game name
+        host.setDiscordInviteURL(QString());
+        host.setDiscordGameName(QString());
+        if (isActiveHost) {
+            pMudlet->updateDiscordNamedIcon();
+        }
+        lua_pushboolean(L, true);
+        return 1;
+    }
+    QString inputText = getVerifiedString(L, __func__, 1, "url").trimmed();
+    host.setDiscordInviteURL(inputText.isEmpty() ? QString() : inputText);
+    if (args > 1) {
+        inputText = getVerifiedString(L, __func__, 2, "game name").trimmed();
+        host.setDiscordGameName(inputText);
+    } else {
+        host.setDiscordGameName(QString());
+    }
+    if (isActiveHost) {
+        pMudlet->updateDiscordNamedIcon();
+    }
+    lua_pushboolean(L, true);
+    return 1;
+}
+
 // Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#usingMudletsDiscordID
 int TLuaInterpreter::usingMudletsDiscordID(lua_State* L)
 {
@@ -10082,7 +10118,12 @@ int TLuaInterpreter::setDiscordLargeIconText(lua_State* L)
         return warnArgumentValue(L, __func__, "access to Discord large icon text is disabled in settings for privacy");
     }
 
-    pMudlet->mDiscord.setLargeImageText(&host, getVerifiedString(L, __func__, 1, "text"));
+    auto discordText = getVerifiedString(L, __func__, 1, "text");
+    if (discordText.size() == 1) {
+        return warnArgumentValue(L, __func__, "text of length 1 not allowed by Discord");
+    }
+
+    pMudlet->mDiscord.setLargeImageText(&host, discordText);
     lua_pushboolean(L, true);
     return 1;
 }
@@ -10152,7 +10193,12 @@ int TLuaInterpreter::setDiscordSmallIconText(lua_State* L)
         return warnArgumentValue(L, __func__, "access to Discord small icon text is disabled in settings for privacy");
     }
 
-    pMudlet->mDiscord.setSmallImageText(&host, getVerifiedString(L, __func__, 1, "text"));
+    auto discordText = getVerifiedString(L, __func__, 1, "text");
+    if (discordText.size() == 1) {
+        return warnArgumentValue(L, __func__, "text of length 1 not allowed by Discord");
+    }
+
+    pMudlet->mDiscord.setSmallImageText(&host, discordText);
     lua_pushboolean(L, true);
     return 1;
 }
@@ -10187,7 +10233,12 @@ int TLuaInterpreter::setDiscordDetail(lua_State* L)
         return warnArgumentValue(L, __func__, "access to Discord detail is disabled in settings for privacy");
     }
 
-    pMudlet->mDiscord.setDetailText(&host, getVerifiedString(L, __func__, 1, "text"));
+    auto discordText = getVerifiedString(L, __func__, 1, "text");
+    if (discordText.size() == 1) {
+        return warnArgumentValue(L, __func__, "text of length 1 not allowed by Discord");
+    }
+
+    pMudlet->mDiscord.setDetailText(&host, discordText);
     lua_pushboolean(L, true);
     return 1;
 }
@@ -10243,7 +10294,12 @@ int TLuaInterpreter::setDiscordState(lua_State* L)
         return warnArgumentValue(L, __func__, "access to Discord state is disabled in settings for privacy");
     }
 
-    mudlet::self()->mDiscord.setStateText(&host, getVerifiedString(L, __func__, 1, "text"));
+    auto discordText = getVerifiedString(L, __func__, 1, "text");
+    if (discordText.size() == 1) {
+        return warnArgumentValue(L, __func__, "text of length 1 not allowed by Discord");
+    }
+
+    mudlet::self()->mDiscord.setStateText(&host, discordText);
     lua_pushboolean(L, true);
     return 1;
 }
@@ -10379,6 +10435,17 @@ int TLuaInterpreter::getDiscordParty(lua_State* L)
     lua_pushnumber(L, partyValues.first);
     lua_pushnumber(L, partyValues.second);
     return 2;
+}
+
+// Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#resetDiscordData
+int TLuaInterpreter::resetDiscordData(lua_State* L)
+{
+    mudlet* pMudlet = mudlet::self();
+    auto& host = getHostFromLua(L);
+
+    pMudlet->mDiscord.resetData(&host);
+    lua_pushboolean(L, true);
+    return 1;
 }
 
 // Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#getTime
@@ -10943,18 +11010,22 @@ int TLuaInterpreter::getIrcServer(lua_State* L)
 {
     Host* pHost = &getHostFromLua(L);
     QString hname;
-    int hport;
+    int hport = 0;
+    bool hsecure = false;
     if (pHost->mpDlgIRC) {
         hname = pHost->mpDlgIRC->getHostName();
         hport = pHost->mpDlgIRC->getHostPort();
+        hsecure = pHost->mpDlgIRC->getHostSecure();
     } else {
         hname = dlgIRC::readIrcHostName(pHost);
         hport = dlgIRC::readIrcHostPort(pHost);
+        hsecure = dlgIRC::readIrcHostSecure(pHost);
     }
 
     lua_pushstring(L, hname.toUtf8().constData());
     lua_pushinteger(L, hport);
-    return 2;
+    lua_pushboolean(L, hsecure);
+    return 3;
 }
 
 // Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#getIrcChannels
@@ -11022,6 +11093,8 @@ int TLuaInterpreter::setIrcNick(lua_State* L)
 // Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#setIrcServer
 int TLuaInterpreter::setIrcServer(lua_State* L)
 {
+    int args = lua_gettop(L);
+    int secure = false;
     int port = 6667;
     std::string addr = getVerifiedString(L, __func__, 1, "hostname").toStdString();
     if (addr.empty()) {
@@ -11033,6 +11106,9 @@ int TLuaInterpreter::setIrcServer(lua_State* L)
             return warnArgumentValue(L, __func__, QStringLiteral("invalid port number %1 given, if supplied it must be in range 1 to 65535").arg(port));
         }
     }
+    if (args > 2) {
+        secure = getVerifiedBool(L, __func__, 3, "secure {default = false}", true);
+    }
 
     Host* pHost = &getHostFromLua(L);
     QPair<bool, QString> result = dlgIRC::writeIrcHostName(pHost, QString::fromStdString(addr));
@@ -11043,6 +11119,11 @@ int TLuaInterpreter::setIrcServer(lua_State* L)
     result = dlgIRC::writeIrcHostPort(pHost, port);
     if (!result.first) {
         return warnArgumentValue(L, __func__, QStringLiteral("unable to save port, reason: %1").arg(result.second));
+    }
+
+    result = dlgIRC::writeIrcHostSecure(pHost, secure);
+    if (!result.first) {
+        return warnArgumentValue(L, __func__, QStringLiteral("unable to save secure, reason: %1").arg(result.second));
     }
 
     lua_pushboolean(L, true);
@@ -12466,7 +12547,7 @@ void TLuaInterpreter::setMatches(lua_State* L)
         // set values
         int i = 1; // Lua indexes start with 1 as a general convention
         for (auto it = mCaptureGroupList.begin(); it != mCaptureGroupList.end(); it++, i++) {
-            // if ((*it).length() < 1) continue; //have empty capture groups to be undefined keys i.e. machts[emptyCapGroupNumber] = nil otherwise it's = "" i.e. an empty string
+            // if ((*it).length() < 1) continue; //have empty capture groups to be undefined keys i.e. matches[emptyCapGroupNumber] = nil otherwise it's = "" i.e. an empty string
             lua_pushnumber(L, i);
             lua_pushstring(L, (*it).c_str());
             lua_settable(L, -3);
@@ -14047,6 +14128,7 @@ void TLuaInterpreter::initLuaGlobals()
     lua_register(pGlobalLua, "getAvailableFonts", TLuaInterpreter::getAvailableFonts);
     lua_register(pGlobalLua, "tempAnsiColorTrigger", TLuaInterpreter::tempAnsiColorTrigger);
     lua_register(pGlobalLua, "setDiscordApplicationID", TLuaInterpreter::setDiscordApplicationID);
+    lua_register(pGlobalLua, "setDiscordGameUrl", TLuaInterpreter::setDiscordGameUrl);
     lua_register(pGlobalLua, "usingMudletsDiscordID", TLuaInterpreter::usingMudletsDiscordID);
     lua_register(pGlobalLua, "setDiscordState", TLuaInterpreter::setDiscordState);
     lua_register(pGlobalLua, "setDiscordGame", TLuaInterpreter::setDiscordGame);
@@ -14066,6 +14148,7 @@ void TLuaInterpreter::initLuaGlobals()
     lua_register(pGlobalLua, "getDiscordTimeStamps", TLuaInterpreter::getDiscordTimeStamps);
     lua_register(pGlobalLua, "setDiscordParty", TLuaInterpreter::setDiscordParty);
     lua_register(pGlobalLua, "getDiscordParty", TLuaInterpreter::getDiscordParty);
+    lua_register(pGlobalLua, "resetDiscordData", TLuaInterpreter::resetDiscordData);
     lua_register(pGlobalLua, "getPlayerRoom", TLuaInterpreter::getPlayerRoom);
     lua_register(pGlobalLua, "getSelection", TLuaInterpreter::getSelection);
     lua_register(pGlobalLua, "getMapSelection", TLuaInterpreter::getMapSelection);
@@ -14104,6 +14187,9 @@ void TLuaInterpreter::initLuaGlobals()
     lua_register(pGlobalLua, "addMouseEvent", TLuaInterpreter::addMouseEvent);
     lua_register(pGlobalLua, "removeMouseEvent", TLuaInterpreter::removeMouseEvent);
     lua_register(pGlobalLua, "getMouseEvents", TLuaInterpreter::getMouseEvents);
+    lua_register(pGlobalLua, "addCommandLineMenuEvent", TLuaInterpreter::addCommandLineMenuEvent);
+    lua_register(pGlobalLua, "removeCommandLineMenuEvent", TLuaInterpreter::removeCommandLineMenuEvent);
+    lua_register(pGlobalLua, "deleteMap", TLuaInterpreter::deleteMap);
     // PLACEMARKER: End of main Lua interpreter functions registration
 
     QStringList additionalLuaPaths;
@@ -14707,7 +14793,9 @@ int TLuaInterpreter::startTempAlias(const QString& regex, const QString& functio
     pT->setIsActive(true);
     pT->setTemporary(true);
     pT->registerAlias();
-    pT->setScript(function);
+    if (!function.isEmpty()) {
+        pT->setScript(function);
+    }
     int id = pT->getID();
     pT->setName(QString::number(id));
     return id;
@@ -14751,7 +14839,9 @@ int TLuaInterpreter::startTempKey(int& modifier, int& keycode, const QString& fu
     pT->setIsActive(true);
     pT->setTemporary(true);
     pT->registerKey();
-    pT->setScript(function);
+    if (!function.isEmpty()) {
+        pT->setScript(function);
+    }
     int id = pT->getID();
     pT->setName(QString::number(id));
     return id;
@@ -15942,5 +16032,72 @@ int TLuaInterpreter::getMouseEvents(lua_State * L)
         // Add the mapEvent object to the result table
         lua_setfield(L, -2, it.key().toUtf8().constData());
     }
+    return 1;
+}
+
+// Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#addCommandLineMenuEvent
+int TLuaInterpreter::addCommandLineMenuEvent(lua_State * L)
+{
+    int args = 1;
+    int argsCount = lua_gettop(L);
+
+    QString commandLineName;
+    if (argsCount >= 3) {
+        commandLineName = getVerifiedString(L, __func__, args++, "command line name");
+    } else {
+        commandLineName = QStringLiteral("main");
+    }
+    auto menuLabel = getVerifiedString(L, __func__, args++, "menu label");
+    auto eventName = getVerifiedString(L, __func__, args++, "event name");
+
+    const auto& commandline = COMMANDLINE(L, commandLineName);
+    commandline->contextMenuItems.insert(menuLabel, eventName);
+
+    lua_pushboolean(L, true);
+    return 1;
+}
+
+// Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#removeCommandLineMenuEvent
+int TLuaInterpreter::removeCommandLineMenuEvent(lua_State * L)
+{
+    int args = 1;
+    int argsCount = lua_gettop(L);
+
+    QString commandLineName;
+    if (argsCount >= 2) {
+        commandLineName = getVerifiedString(L, __func__, args++, "command line name");
+    } else {
+        commandLineName = QStringLiteral("main");
+    }
+    auto menuLabel = getVerifiedString(L, __func__, args++, "menu label");
+
+    const auto& commandline = COMMANDLINE(L, commandLineName);
+
+    if (commandline->contextMenuItems.remove(menuLabel) == 0) {
+        lua_pushboolean(L, false);
+        lua_pushfstring(L, "removeCommandLineMenuEvent: Cannot remove '%s', menu item does not exist.", menuLabel.toUtf8().constData());
+        return 2;
+    }
+    lua_pushboolean(L, true);
+    return 1;
+}
+
+int TLuaInterpreter::deleteMap(lua_State* L)
+{
+    Host& host = getHostFromLua(L);
+
+    if (!host.mpMap || !host.mpMap->mpRoomDB) {
+        // These tests pass even if the map is empty, however there can still
+        // be deleteable data present even in that case - and this test will
+        // still succeed immediately after this function has been used!
+        return warnArgumentValue(L, __func__, "no map present or loaded");
+    }
+
+    host.mpMap->mapClear();
+
+    // Also cause any displayed map to reset:
+    updateMap(L);
+
+    lua_pushboolean(L, true);
     return 1;
 }
