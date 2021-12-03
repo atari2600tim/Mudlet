@@ -566,6 +566,7 @@ signals:
     void signal_guiLanguageChanged(const QString&);
     void signal_passwordsMigratedToSecure();
     void signal_passwordMigratedToSecure(const QString&);
+    void signal_ircPasswordMigratedToSecure(const QString&);
     void signal_passwordsMigratedToProfiles();
     void signal_shortcutsChanged();
 
@@ -601,6 +602,8 @@ private slots:
     void slot_compact_input_line(const bool);
     void slot_password_migrated_to_secure(QKeychain::Job *job);
     void slot_password_migrated_to_profile(QKeychain::Job *job);
+    void slot_irc_password_migrated_to_secure(QKeychain::Job *job);
+    void slot_irc_password_migrated_to_profile(QKeychain::Job *job);
     void slot_tabMoved(const int oldPos, const int newPos);
 
 
@@ -730,6 +733,7 @@ private:
 
     // a list of profiles currently being migrated to secure or profile storage
     QStringList mProfilePasswordsToMigrate {};
+    QStringList mIrcProfilePasswordsToMigrate {};
 
     bool mStorePasswordsSecurely {true};
     // Stores the translated names for the Encodings for the static and thus

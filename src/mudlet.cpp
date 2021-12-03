@@ -3777,7 +3777,7 @@ void mudlet::setEnableFullScreenMode(const bool state)
 
 bool mudlet::migratePasswordsToSecureStorage()
 {
-    if (!mProfilePasswordsToMigrate.isEmpty()) {
+    if (!mProfilePasswordsToMigrate.isEmpty() || !mIrcProfilePasswordsToMigrate.isEmpty()) {
         qWarning() << "mudlet::migratePasswordsToSecureStorage() warning: password migration is already in progress, won't start another.";
         return false;
     }
@@ -3788,26 +3788,41 @@ bool mudlet::migratePasswordsToSecureStorage()
 
     for (const auto& profile : profiles) {
         const auto password = readProfileData(profile, QStringLiteral("password"));
-        if (password.isEmpty()) {
-            continue;
+        if (!password.isEmpty()) {
+            auto *job = new QKeychain::WritePasswordJob(QStringLiteral("Mudlet profile"));
+            job->setAutoDelete(false);
+            job->setInsecureFallback(false);
+
+            job->setKey(profile);
+            job->setTextData(password);
+            job->setProperty("profile", profile);
+
+            mProfilePasswordsToMigrate.append(profile);
+
+            connect(job, &QKeychain::WritePasswordJob::finished, this, &mudlet::slot_password_migrated_to_secure);
+
+            job->start();
         }
 
-        auto *job = new QKeychain::WritePasswordJob(QStringLiteral("Mudlet profile"));
-        job->setAutoDelete(false);
-        job->setInsecureFallback(false);
+        const auto ircpassword = readProfileData(profile, QStringLiteral("irc_password"));
+        if (!ircpassword.isEmpty()) {
+            auto *ircjob = new QKeychain::WritePasswordJob(QStringLiteral("Mudlet IRC"));
+            ircjob->setAutoDelete(false);
+            ircjob->setInsecureFallback(false);
 
-        job->setKey(profile);
-        job->setTextData(password);
-        job->setProperty("profile", profile);
+            ircjob->setKey(profile);
+            ircjob->setTextData(password);
+            ircjob->setProperty("profile", profile);
 
-        mProfilePasswordsToMigrate.append(profile);
+            mIrcProfilePasswordsToMigrate.append(profile);
 
-        connect(job, &QKeychain::WritePasswordJob::finished, this, &mudlet::slot_password_migrated_to_secure);
+            connect(ircjob, &QKeychain::WritePasswordJob::finished, this, &mudlet::slot_irc_password_migrated_to_secure);
 
-        job->start();
+            ircjob->start();
+        }
     }
 
-    if (mProfilePasswordsToMigrate.isEmpty()) {
+    if (mProfilePasswordsToMigrate.isEmpty() && mIrcProfilePasswordsToMigrate.isEmpty()) {
         QTimer::singleShot(0, this, [this]() {
             emit signal_passwordsMigratedToProfiles();
         });
@@ -3827,10 +3842,28 @@ void mudlet::slot_password_migrated_to_secure(QKeychain::Job* job)
     mProfilePasswordsToMigrate.removeAll(profileName);
     job->deleteLater();
 
-    if (mProfilePasswordsToMigrate.isEmpty()) {
+    if (mProfilePasswordsToMigrate.isEmpty() && mIrcProfilePasswordsToMigrate.isEmpty()) {
         emit signal_passwordsMigratedToSecure();
     } else {
         emit signal_passwordMigratedToSecure(profileName);
+    }
+}
+
+void mudlet::slot_irc_password_migrated_to_secure(QKeychain::Job* job)
+{
+    const auto profileName = job->property("profile").toString();
+    if (job->error()) {
+        qWarning() << "mudlet::slot_irc_password_saved ERROR: couldn't migrate for" << profileName << "; error was:" << job->errorString();
+    } else {
+        deleteProfileData(profileName, QStringLiteral("irc_password"));
+    }
+    mIrcProfilePasswordsToMigrate.removeAll(profileName);
+    job->deleteLater();
+
+    if (mProfilePasswordsToMigrate.isEmpty() && mIrcProfilePasswordsToMigrate.isEmpty()) {
+        emit signal_passwordsMigratedToSecure();
+    } else {
+        emit signal_ircPasswordMigratedToSecure(profileName);
     }
 }
 
@@ -3854,9 +3887,19 @@ bool mudlet::migratePasswordsToProfileStorage()
 
         connect(job, &QKeychain::ReadPasswordJob::finished, this, &mudlet::slot_password_migrated_to_profile);
         job->start();
+
+        auto* ircjob = new QKeychain::ReadPasswordJob(QStringLiteral("Mudlet IRC"));
+        ircjob->setAutoDelete(false);
+        ircjob->setInsecureFallback(false);
+        ircjob->setKey(profile);
+        ircjob->setProperty("profile", profile);
+        mIrcProfilePasswordsToMigrate.append(profile);
+
+        connect(ircjob, &QKeychain::ReadPasswordJob::finished, this, &mudlet::slot_irc_password_migrated_to_profile);
+        ircjob->start();
     }
 
-    if (mProfilePasswordsToMigrate.isEmpty()) {
+    if (mProfilePasswordsToMigrate.isEmpty() && mIrcProfilePasswordsToMigrate.isEmpty()) {
         QTimer::singleShot(0, this, [this]() {
             emit signal_passwordsMigratedToProfiles();
         });
@@ -3889,6 +3932,35 @@ void mudlet::slot_password_migrated_to_profile(QKeychain::Job* job)
     job->deleteLater();
 
     if (mProfilePasswordsToMigrate.isEmpty()) {
+        emit signal_passwordsMigratedToProfiles();
+    }
+}
+
+void mudlet::slot_irc_password_migrated_to_profile(QKeychain::Job* job)
+{
+    const auto profileName = job->property("profile").toString();
+
+    if (job->error()) {
+        const auto error = job->errorString();
+        if (error != QStringLiteral("Entry not found") && error != QStringLiteral("No match")) {
+            qWarning().nospace().noquote() << "mudlet::slot_irc_password_migrated_to_profile(...) ERROR - could not migrate for \"" << profileName << "\"; error was: " << error << ".";
+        }
+
+    } else {
+        auto readJob = static_cast<QKeychain::ReadPasswordJob*>(job);
+        writeProfileData(profileName, QStringLiteral("irc_password"), readJob->textData());
+
+        // delete from secure storage
+        auto *job = new QKeychain::DeletePasswordJob(QStringLiteral("Mudlet IRC"));
+        job->setAutoDelete(true);
+        job->setKey(profileName);
+        job->setProperty("profile", profileName);
+        job->start();
+    }
+    mIrcProfilePasswordsToMigrate.removeAll(profileName);
+    job->deleteLater();
+
+    if (mIrcProfilePasswordsToMigrate.isEmpty()) {
         emit signal_passwordsMigratedToProfiles();
     }
 }

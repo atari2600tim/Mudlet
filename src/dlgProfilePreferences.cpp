@@ -365,6 +365,11 @@ void dlgProfilePreferences::setupPasswordsMigration()
                 tr("Migrated %1...", "This notifies the user that progress is being made on profile migration by saying what profile was just migrated to store passwords securely").arg(profile));
     });
 
+    connect(mudlet::self(), &mudlet::signal_ircPasswordMigratedToSecure, [=](const QString& profile) {
+        label_password_migration_notification->setText(
+                tr("Migrated IRC password for %1...", "This notifies the user that progress is being made on profile migration by saying what profile had IRC password migrated to store passwords securely").arg(profile));
+    });
+
     connect(mudlet::self(), &mudlet::signal_passwordsMigratedToProfiles, [=]() {
         label_password_migration_notification->setText(tr("Migrated all passwords to profile storage."));
         comboBox_store_passwords_in->setEnabled(true);
