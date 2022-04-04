@@ -1723,14 +1723,14 @@ bool dlgConnectionProfiles::validateProfile()
         }
 
         // see if there is an edit that already uses a similar name
-        if (pItem->data(csmNameRole).toString() != name){
+        if (pItem->data(csmNameRole).toString() != name) {
             bool foundName = false;
             for (int i = 0; i < mProfileList.size(); i++) {
-                if( QString::compare(name, mProfileList.at(i), Qt::CaseInsensitive) == 0) {
+                if(QString::compare(name, mProfileList.at(i), Qt::CaseInsensitive) == 0) {
                     foundName = true;
                 }
             }
-            if(foundName){
+            if(foundName) {
                 notificationAreaIconLabelError->show();
                 notificationAreaMessageBox->setText(qsl("%1\n%2").arg(notificationAreaMessageBox->text(), tr("This profile name is already in use.")));
                 validName = false;
