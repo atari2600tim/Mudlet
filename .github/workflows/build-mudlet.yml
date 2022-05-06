@@ -189,7 +189,7 @@ jobs:
         # If not available, use other methods
         # imagemagick is for the desktop screenshot
         sudo apt-get install ccache pkg-config pcregrep expect libzip-dev libglu1-mesa-dev libpulse-dev g++-7 \
-          libxkbcommon-x11-0 imagemagick -y
+          libxkbcommon-x11-0 imagemagick libqt5gamepad5-dev -y
 
         # switch to GCC that supports C++17 while retaining support for older OS's
         sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 7
@@ -356,10 +356,11 @@ jobs:
 
     - name: Upload packaged Mudlet
       uses: actions/upload-artifact@v3
-      if: env.UPLOAD_FILENAME
+      #if: env.UPLOAD_FILENAME
       with:
-        name: ${{env.UPLOAD_FILENAME}}
-        path: ${{env.FOLDER_TO_UPLOAD}}
+        #name: ${{env.UPLOAD_FILENAME}}
+        #path: ${{env.FOLDER_TO_UPLOAD}}
+        path: ${{runner.workspace}}/b/ninja
 
     - name: Submit to make.mudlet.org
       if: env.UPLOAD_FILENAME
