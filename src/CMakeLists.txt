@@ -3,6 +3,7 @@
 #    Copyright (C) 2015-2018, 2020 by Stephen Lyons                        #
 #                                                - slysven@virginmedia.com #
 #    Copyright (C) 2018 by Huadong Qi - novload@outlook.com                #
+#    Copyright (C) 2022 by Piotr Wilczynski - delwing@gmail.com            #
 #                                                                          #
 #    This program is free software; you can redistribute it and/or modify  #
 #    it under the terms of the GNU General Public License as published by  #
@@ -58,6 +59,7 @@ set(mudlet_SRCS
     dlgIRC.cpp
     dlgKeysMainArea.cpp
     dlgMapper.cpp
+    dlgMapLabel.cpp
     dlgModuleManager.cpp
     dlgNotepad.cpp
     dlgPackageExporter.cpp
@@ -85,6 +87,7 @@ set(mudlet_SRCS
     main.cpp
     mapInfoContributorManager.cpp
     mudlet.cpp
+    ShortcutsManager.cpp
     ScriptUnit.cpp
     T2DMap.cpp
     TAction.cpp
@@ -104,6 +107,7 @@ set(mudlet_SRCS
     TimerUnit.cpp
     TKey.cpp
     TLabel.cpp
+    TScrollBox.cpp
     TLinkStore.cpp
     TLuaInterpreter.cpp
     TMap.cpp
@@ -164,6 +168,7 @@ set(mudlet_UIS
     ui/keybindings_main_area.ui
     ui/main_window.ui
     ui/module_manager.ui
+    ui/map_label.ui
     ui/mapper.ui
     ui/notes_editor.ui
     ui/package_manager.ui
@@ -195,6 +200,7 @@ set(mudlet_HDRS
     dlgConnectionProfiles.h
     dlgIRC.h
     dlgKeysMainArea.h
+    dlgMapLabel.h
     dlgMapper.h
     dlgModuleManager.h
     dlgNotepad.h
@@ -224,6 +230,7 @@ set(mudlet_HDRS
     mudlet.h
     post_guard.h
     pre_guard.h
+    ShortcutsManager.h
     ScriptUnit.h
     T2DMap.h
     TAction.h
@@ -246,6 +253,7 @@ set(mudlet_HDRS
     TimerUnit.h
     TKey.h
     TLabel.h
+    TScrollBox.h
     TLinkStore.h
     TLuaInterpreter.h
     TMainConsole.h
@@ -294,6 +302,7 @@ set(mudlet_HDRS
     TTrigger.h
     TVar.h
     VarUnit.h
+    utils.h
     widechar_width.h
     XMLexport.h
     XMLimport.h)
@@ -308,9 +317,25 @@ if(USE_3DMAPPER)
   list(APPEND mudlet_HDRS glwidget.h)
 endif(USE_3DMAPPER)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+macro(set_alternate_linker linker)
+  find_program(LINKER_EXECUTABLE ld.${USE_ALTERNATE_LINKER} ${USE_ALTERNATE_LINKER})
+  if(LINKER_EXECUTABLE)
+    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" AND "${CMAKE_CXX_COMPILER_VERSION}" VERSION_LESS 12.0.0)
+      add_link_options("-ld-path=${USE_ALTERNATE_LINKER}")
+    else()
+      add_link_options("-fuse-ld=${USE_ALTERNATE_LINKER}")
+    endif()
+  else()
+    set(USE_ALTERNATE_LINKER "" CACHE STRING "Use alternate linker" FORCE)
+  endif()
+endmacro()
+
+set(USE_ALTERNATE_LINKER "" CACHE STRING "Use alternate linker. Leave empty for system default; alternatives are 'gold', 'lld', 'bfd', 'mold'")
+if(NOT "${USE_ALTERNATE_LINKER}" STREQUAL "")
+  set_alternate_linker(${USE_ALTERNATE_LINKER})
+endif()
+
+include(../3rdparty/cmake-scripts/sanitizers.cmake)
 
 find_package(
   Qt5 5.11 REQUIRED
@@ -360,8 +385,7 @@ endif()
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-add_executable(mudlet ${mudlet_SRCS} ${mudlet_RCCS} ${mudlet_HDRS}
-                      ${mudlet_UIS})
+add_executable(mudlet ${mudlet_SRCS} ${mudlet_RCCS} ${mudlet_HDRS} ${mudlet_UIS})
 target_sources(mudlet PRIVATE "${mudlet_BINARY_DIR}/translations/translated/qm.qrc")
 
 set_target_properties(mudlet PROPERTIES
