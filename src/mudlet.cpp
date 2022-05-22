@@ -3437,7 +3437,7 @@ QString mudlet::getMudletPath(const mudletPathType mode, const QString& extra1, 
     switch (mode) {
     case mainPath:
         // The root of all mudlet data for the user - does not end in a '/'
-        return qsl("%1/.config/mudlet").arg(QDir::homePath());
+        return qsl("%1/.config/mudlet").arg(mudlet::self()->homePath);
     case mainDataItemPath:
         // Takes one extra argument as a file (or directory) relating to
         // (profile independent) mudlet data - may end with a '/' if the extra

@@ -5547,7 +5547,7 @@ int TLuaInterpreter::loadMediaFileAsOrderedArguments(lua_State* L)
         case 1:
             stringValue = getVerifiedString(L, __func__, i, "name");
 
-            if (QDir::homePath().contains('\\')) {
+            if (mudlet::self()->homePath.contains('\\')) {
                 stringValue.replace('/', R"(\)");
             } else {
                 stringValue.replace('\\', "/");
@@ -5590,7 +5590,7 @@ int TLuaInterpreter::loadMediaFileAsTableArgument(lua_State* L)
             QString value = getVerifiedString(L, __func__, -1, key == QLatin1String("name") ? "value for name" : "value for url");
 
             if (key == QLatin1String("name") && !value.isEmpty()) {
-                if (QDir::homePath().contains('\\')) {
+                if (mudlet::self()->homePath.contains('\\')) {
                     value.replace('/', R"(\)");
                 } else {
                     value.replace('\\', "/");
@@ -5669,7 +5669,7 @@ int TLuaInterpreter::playMusicFileAsOrderedArguments(lua_State* L)
         case 1:
             stringValue = getVerifiedString(L, __func__, i, "name");
 
-            if (QDir::homePath().contains('\\')) {
+            if (mudlet::self()->homePath.contains('\\')) {
                 stringValue.replace('/', R"(\)");
             } else {
                 stringValue.replace('\\', "/");
@@ -5782,7 +5782,7 @@ int TLuaInterpreter::playMusicFileAsTableArgument(lua_State* L)
                                                                             : "value for url");
 
             if (key == QLatin1String("name") && !value.isEmpty()) {
-                if (QDir::homePath().contains('\\')) {
+                if (mudlet::self()->homePath.contains('\\')) {
                     value.replace('/', R"(\)");
                 } else {
                     value.replace('\\', "/");
@@ -5900,7 +5900,7 @@ int TLuaInterpreter::playSoundFileAsOrderedArguments(lua_State* L)
         case 1:
             stringValue = getVerifiedString(L, __func__, i, "name");
 
-            if (QDir::homePath().contains('\\')) {
+            if (mudlet::self()->homePath.contains('\\')) {
                 stringValue.replace('/', R"(\)");
             } else {
                 stringValue.replace('\\', "/");
@@ -6021,7 +6021,7 @@ int TLuaInterpreter::playSoundFileAsTableArgument(lua_State* L)
                                                                             : "value for url");
 
             if (key == QLatin1String("name") && !value.isEmpty()) {
-                if (QDir::homePath().contains('\\')) {
+                if (mudlet::self()->homePath.contains('\\')) {
                     value.replace('/', R"(\)");
                 } else {
                     value.replace('\\', "/");
@@ -6146,7 +6146,7 @@ int TLuaInterpreter::stopMusicAsOrderedArguments(lua_State* L)
         case 1:
             stringValue = getVerifiedString(L, __func__, i, "name");
 
-            if (QDir::homePath().contains('\\')) {
+            if (mudlet::self()->homePath.contains('\\')) {
                 stringValue.replace('/', R"(\)");
             } else {
                 stringValue.replace('\\', "/");
@@ -6189,7 +6189,7 @@ int TLuaInterpreter::stopMusicAsTableArgument(lua_State* L)
             QString value = getVerifiedString(L, __func__, -1, key == QLatin1String("name") ? "value for name" : key == QLatin1String("key") ? "value for key" : "value for tag");
 
             if (key == QLatin1String("name") && !value.isEmpty()) {
-                if (QDir::homePath().contains('\\')) {
+                if (mudlet::self()->homePath.contains('\\')) {
                     value.replace('/', R"(\)");
                 } else {
                     value.replace('\\', "/");
@@ -6257,7 +6257,7 @@ int TLuaInterpreter::stopSoundsAsOrderedArguments(lua_State* L)
         case 1:
             stringValue = getVerifiedString(L, __func__, i, "name");
 
-            if (QDir::homePath().contains('\\')) {
+            if (mudlet::self()->homePath.contains('\\')) {
                 stringValue.replace('/', R"(\)");
             } else {
                 stringValue.replace('\\', "/");
@@ -6311,7 +6311,7 @@ int TLuaInterpreter::stopSoundsAsTableArgument(lua_State* L)
             QString value = getVerifiedString(L, __func__, -1, key == QLatin1String("name") ? "value for name" : key == QLatin1String("key") ? "value for key" : "value for tag");
 
             if (key == QLatin1String("name") && !value.isEmpty()) {
-                if (QDir::homePath().contains('\\')) {
+                if (mudlet::self()->homePath.contains('\\')) {
                     value.replace('/', R"(\)");
                 } else {
                     value.replace('\\', "/");

@@ -1377,7 +1377,7 @@ void TTrigger::execute()
     if (mSoundTrigger) { /* eventually something should be added to the gui to change sound volumes. 100=full volume */
         QString mediaFileName = mSoundFile;
 
-        if (QDir::homePath().contains('\\')) {
+        if (mudlet::self()->homePath.contains('\\')) {
             mediaFileName.replace('/', R"(\)");
         } else {
             mediaFileName.replace('\\', "/");

@@ -206,7 +206,7 @@ int main(int argc, char* argv[])
     QCommandLineOption beQuiet(QStringList() << "q" << "quiet", QCoreApplication::translate("main", "Don't show the splash screen when starting"));
     parser.addOption(beQuiet);
 
-    QCommandLineOption bePortable(QStringLiteral("portable"), QCoreApplication::translate("main","Use alternate settings directory based on program location"));
+    QCommandLineOption bePortable(QStringLiteral("portable"), QCoreApplication::translate("main", "Use alternate settings directory based on program location"));
     parser.addOption(bePortable);
     QCommandLineOption mirrorToStdout(QStringList() << "m" << "mirror", QCoreApplication::translate("main", "Mirror output of all consoles to STDOUT"));
     parser.addOption(mirrorToStdout);
@@ -484,39 +484,39 @@ int main(int argc, char* argv[])
 #endif // defined(INCLUDE_FONTS)
 
     mudlet::debugMode = false;
-
-    QString homeLink = qsl("%1/mudlet-data").arg(QDir::homePath());
+    if(!portable){
+        QString homeLink = qsl("%1/mudlet-data").arg(QDir::homePath());
 #if defined(Q_OS_WIN32)
-    /*
-     * From Qt Documentation for:
-     * bool QFile::link(const QString &linkName)
-     *
-     * "Note: To create a valid link on Windows, linkName must have a .lnk file
-     * extension."
-     *
-     * Whilst the static form:
-     * [static] bool QFile::link(const QString &fileName, const QString &linkName)
-     * does not mention this particular restriction it is not unreasonable to
-     * assume the same condition applies...
-     */
-    QString homeLinkWindows = qsl("%1/mudlet-data.lnk").arg(QDir::homePath());
-    QFile oldLinkFile(homeLink);
-    if (oldLinkFile.exists()) {
-        // A One-time fix up past error that did not include the ".lnk" extension
-        oldLinkFile.rename(homeLinkWindows);
-    } else {
-        QFile linkFile(homeLinkWindows);
-        if (!linkFile.exists()) {
-            QFile::link(homeDirectory, homeLinkWindows);
+        /*
+        * From Qt Documentation for:
+        * bool QFile::link(const QString &linkName)
+        *
+        * "Note: To create a valid link on Windows, linkName must have a .lnk file
+        * extension."
+        *
+        * Whilst the static form:
+        * [static] bool QFile::link(const QString &fileName, const QString &linkName)
+        * does not mention this particular restriction it is not unreasonable to
+        * assume the same condition applies...
+        */
+        QString homeLinkWindows = qsl("%1/mudlet-data.lnk").arg(QDir::homePath());
+        QFile oldLinkFile(homeLink);
+        if (oldLinkFile.exists()) {
+            // A One-time fix up past error that did not include the ".lnk" extension
+            oldLinkFile.rename(homeLinkWindows);
+        } else {
+            QFile linkFile(homeLinkWindows);
+            if (!linkFile.exists()) {
+                QFile::link(homeDirectory, homeLinkWindows);
+            }
         }
-    }
 #else
-    QFile linkFile(homeLink);
-    if (!linkFile.exists() && first_launch) {
-        QFile::link(homeDirectory, homeLink);
-    }
+        QFile linkFile(homeLink);
+        if (!linkFile.exists() && first_launch) {
+            QFile::link(homeDirectory, homeLink);
+        }
 #endif
-
+    }
     mudlet::start();
 
     if (first_launch) {
