@@ -12708,9 +12708,6 @@ int TLuaInterpreter::ttsGetState(lua_State* L)
 #endif // QT_TEXTTOSPEECH_LIB
 
 #ifdef QT_GAMEPAD_LIB
-// TODO: function to get list of gamepads
-// TODO: function to get status of specific gamepad
-
 // Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#gamepadGetList
 int TLuaInterpreter::gamepadGetList(lua_State* L)
 {
@@ -12737,56 +12734,23 @@ int TLuaInterpreter::gamepadGetList(lua_State* L)
         lua_pushnumber(L, gamepad->deviceId()); // number? integer?
         lua_settable(L, -3);  // double check that this is correct structure
     }
-    
+
     return 1;
-    /*
-    getTime will return time data and looks like decent example of how to
-    return a table thing in lua, though I want to do it in the reverse way,
-    with deviceID and then name of device
-
-    { 'min': #, 'year': #, 'month': #, 'day': #, 'sec': #, 'hour': #, 'msec': # }
-
-            QDate dt = time.date();
-        QTime tm = time.time();
-        lua_createtable(L, 0, 4);
-        lua_pushstring(L, "hour");
-        lua_pushinteger(L, tm.hour());
-        lua_rawset(L, n + 1);
-        lua_pushstring(L, "min");
-        lua_pushinteger(L, tm.minute());
-        lua_rawset(L, n + 1);
-        lua_pushstring(L, "sec");
-        lua_pushinteger(L, tm.second());
-        lua_rawset(L, n + 1);
-        lua_pushstring(L, "msec");
-        lua_pushinteger(L, tm.msec());
-        lua_rawset(L, n + 1);
-        lua_pushstring(L, "year");
-        lua_pushinteger(L, dt.year());
-        lua_rawset(L, n + 1);
-        lua_pushstring(L, "month");
-        lua_pushinteger(L, dt.month());
-        lua_rawset(L, n + 1);
-        lua_pushstring(L, "day");
-        lua_pushinteger(L, dt.day());
-        lua_rawset(L, n + 1);
-
-    */
 
 }
 
 // Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#gamepadGetStatus
 int TLuaInterpreter::gamepadGetStatus(lua_State* L)
 {
+// arg 1 is device ID, arg 2 is optional data to look at, else return whole list
+/* incomplete
     int n = lua_gettop(L);
     int gamepadId = getVerifiedInt(L, __func__, 1, "gamepad id");
-    // if not valid gamepad ID then return error message
-    if ( false ) { // TODO
+    if ( false ) { // Tim will do this in a bit
         lua_pushboolean(L, false);
         lua_pushfstring(L, qsl("no gamepad with ID %1 found").arg(gamepadId).toUtf8().constData());
         return 2;
     }
-
 
     if (n > 1) {
         info = getVerifiedInt(L, __func__, 2, "info", true);
@@ -12794,52 +12758,7 @@ int TLuaInterpreter::gamepadGetStatus(lua_State* L)
         // maybe it pushes the error onto stack for you?
     }
     return 1;
-/* arg 1 is device ID, arg 2 is optional data to look at, else return whole list
-
-
-    int n = lua_gettop(L);
-    QString name = getVerifiedString(L, __func__, 1, "package name");
-    QString info;
-    if (n > 1) {
-        info = getVerifiedString(L, __func__, 2, "info", true);
-    }
-
-
-looks much like getPackageInfo
-lua getPackages()
-{ "deleteOldProfiles", "run-lua-code-v4", "echo", "ef-mapper", "tts-tim", "tim-mudlet" }
-lua getPackageInfo("ef-mapper")
-{
-  created = "2021-06-14T22:23:35+0000",
-  mpackage = "ef-mapper"
-}
-lua getPackageInfo("ef-mapper","created")
-"2021-06-14T22:23:35+0000"
-
-   Host& host = getHostFromLua(L);
-    auto infoMap = host.mPackageInfo;
-    int n = lua_gettop(L);
-    QString name = getVerifiedString(L, __func__, 1, "package name");
-    QString info;
-    if (n > 1) {
-        info = getVerifiedString(L, __func__, 2, "info", true);
-    }
-    if (info.isEmpty()) {
-        QMap<QString, QString>::const_iterator iter = infoMap.value(name).constBegin();
-        lua_newtable(L);
-        while (iter != infoMap.value(name).constEnd()) {
-            lua_pushstring(L, iter.key().toUtf8().constData());
-            lua_pushstring(L, iter.value().toUtf8().constData());
-            lua_settable(L, -3);
-            ++iter;
-        }
-    } else {
-        lua_pushstring(L, infoMap.value(name).value(info).toUtf8().constData());
-    }
-    return 1;
 */
-
-
 }
 #endif // #ifdef QT_GAMEPAD_LIB
 
