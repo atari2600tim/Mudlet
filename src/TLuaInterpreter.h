@@ -563,6 +563,10 @@ public:
     static void ttsBuild();
     static void ttsStateChanged(QTextToSpeech::State state);
 #endif // QT_TEXTTOSPEECH_LIB
+#ifdef QT_GAMEPAD_LIB
+    static int TLuaInterpreter::gamepadGetList(lua_State*);
+    static int TLuaInterpreter::gamepadGetStatus(lua_State*);
+#endif // #ifdef QT_GAMEPAD_LIB
     static int tempPromptTrigger(lua_State*);
     static int permPromptTrigger(lua_State*);
     static int getColumnCount(lua_State*);

@@ -8,6 +8,7 @@ mudlet.supports = {
   namedPatterns = true,
   osVersion = true
 }
+--TODO: if gamepad function exists then gamepad is true, else false or not defined
 
 -- enforce uniform locale so scripts don't get
 -- tripped up on number representation differences (. vs ,)
