@@ -12708,16 +12708,11 @@ int TLuaInterpreter::ttsGetState(lua_State* L)
 #endif // QT_TEXTTOSPEECH_LIB
 
 #ifdef QT_GAMEPAD_LIB
+
 // Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#gamepadGetList
 int TLuaInterpreter::gamepadGetList(lua_State* L)
 {
     qDebug()<<"TIM: gamepadGetList was called";
-    // I guess I will make it return simple list?
-    // bah, I think Lua has no concept of arrays and only has indexed lists
-    //QGamepadManager::connectedGamepads()
-    // from https://doc.qt.io/qt-5/qgamepadmanager.html#connectedGamepads
-    // sample code taken from
-    // https://stuff.mit.edu/afs/athena/software/texmaker_v5.0.2/qt57/doc/qtgamepad/qtgamepad-simple-gamepadmonitor-cpp.html
     auto gamepads = QGamepadManager::instance()->connectedGamepads();
     qDebug() << "Number of gamepads:" << gamepads.size();
     lua_newtable(L);
@@ -12728,15 +12723,12 @@ int TLuaInterpreter::gamepadGetList(lua_State* L)
         qDebug() << "  device id:   " << gamepad->deviceId();
         qDebug() << "  name:        " << gamepad->name();
         qDebug() << "  is connected?" << gamepad->isConnected();
-          // aww, the list will included disconnected ones
-          // would a bloolean arg to list only connected ones be wanted?
         lua_pushnumber(L, i);
         lua_pushnumber(L, gamepad->deviceId()); // number? integer?
         lua_settable(L, -3);  // double check that this is correct structure
     }
 
     return 1;
-
 }
 
 // Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#gamepadGetStatus
@@ -12760,7 +12752,8 @@ int TLuaInterpreter::gamepadGetStatus(lua_State* L)
     return 1;
 */
 }
-#endif // #ifdef QT_GAMEPAD_LIB
+
+#endif // QT_GAMEPAD_LIB
 
 // Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#setServerEncoding
 int TLuaInterpreter::setServerEncoding(lua_State* L)
