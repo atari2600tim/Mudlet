@@ -12718,14 +12718,13 @@ int TLuaInterpreter::gamepadGetList(lua_State* L)
     lua_newtable(L);
     for (auto i : gamepads){
         QGamepad *gamepad = new QGamepad(i);
-        // https://www.ics.com/blog/whats-new-qt-570-qt-gamepad
         qDebug() << "Gamepad:" << i;
         qDebug() << "  device id:   " << gamepad->deviceId();
         qDebug() << "  name:        " << gamepad->name();
         qDebug() << "  is connected?" << gamepad->isConnected();
         lua_pushnumber(L, i);
-        lua_pushnumber(L, gamepad->deviceId()); // number? integer?
-        lua_settable(L, -3);  // double check that this is correct structure
+        lua_pushnumber(L, gamepad->deviceId());
+        lua_settable(L, -3);
     }
 
     return 1;
