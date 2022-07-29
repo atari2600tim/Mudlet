@@ -12733,23 +12733,77 @@ int TLuaInterpreter::gamepadGetList(lua_State* L)
 // Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#gamepadGetStatus
 int TLuaInterpreter::gamepadGetStatus(lua_State* L)
 {
-// arg 1 is device ID, arg 2 is optional data to look at, else return whole list
-/* incomplete
+// arg 1 is device ID, arg 2 is optional data to look at, else return whole set of data
+// not sure if I want that optional thing... what to call them? "button1" and so on?
     int n = lua_gettop(L);
     int gamepadId = getVerifiedInt(L, __func__, 1, "gamepad id");
-    if ( false ) { // Tim will do this in a bit
+    auto gamepads = QGamepadManager::instance()->connectedGamepads();
+    bool found = false;
+    for (auto i : gamepads){
+        if( gamepadId == i ) {
+            found = true;
+        }
+    }
+    if ( !found ) {
         lua_pushboolean(L, false);
         lua_pushfstring(L, qsl("no gamepad with ID %1 found").arg(gamepadId).toUtf8().constData());
         return 2;
     }
+    QGamepad *gamepad = new QGamepad(i);
 
+    QString info;
     if (n > 1) {
-        info = getVerifiedInt(L, __func__, 2, "info", true);
+        info = getVerifiedString(L, __func__, 2, "info", true);
         // Tim forgot what "true" means... required?
         // maybe it pushes the error onto stack for you?
     }
+    if(info.isEmpty()) { // list everything
+    /*
+    How to structure it?
+
+    name: Xbox controller
+    connected: true
+    buttons: {true, false, ...} for 15 buttons
+    axes: { 0.0, 0.1, ...} for 4 axes
+
+        // getProfileStats is an example of how to do subtable stuff
+    */
+        lua_newtable(L);
+
+        lua_pushstring(L, "name");
+        lua_pushstring(L, gamepad->name());
+        lua_settable(L, -3);
+
+        lua_pushstring(L, "connected");
+        lua_pushboolean(L, gamepad->isConnected());
+        lua_settable(L, -3);
+
+        lua_pushstring(L, "buttons");
+        lua_newtable(L); // making a table within buttons
+
+        // key and value pairs?
+
+        lua_settable(L, -3); // buttons
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    } else { // specific data
+        lua_pushstring("not written yet");
+    }
+
     return 1;
-*/
 }
 
 #endif // QT_GAMEPAD_LIB
