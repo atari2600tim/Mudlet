@@ -12749,7 +12749,7 @@ int TLuaInterpreter::gamepadGetStatus(lua_State* L)
         lua_pushfstring(L, qsl("no gamepad with ID %1 found").arg(gamepadId).toUtf8().constData());
         return 2;
     }
-    QGamepad *gamepad = new QGamepad(i);
+    QGamepad *gamepad = new QGamepad(gamepadId);
 
     QString info;
     if (n > 1) {
