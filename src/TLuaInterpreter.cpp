@@ -12784,20 +12784,8 @@ int TLuaInterpreter::gamepadGetStatus(lua_State* L)
         // key and value pairs?
 
         lua_settable(L, -3); // buttons
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        lua_settable(L, -3);
+        return 1;
 
     } else { // specific data
         lua_pushstring("not written yet");
