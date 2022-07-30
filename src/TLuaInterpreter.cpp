@@ -11034,6 +11034,15 @@ int TLuaInterpreter::getMudletVersion(lua_State* L)
         lua_pushstring(L, "revision");
         lua_pushinteger(L, revision);
         lua_settable(L, -3);
+
+        lua_pushstring(L, "gamepad");
+#ifdef QT_GAMEPAD_LIB
+        lua_pushboolean(L, true);
+#else
+        lua_pushboolean(L, false);
+#endif
+        lua_settable(L, -3);
+
         lua_pushstring(L, "build");
         lua_pushstring(L, QByteArray(APP_BUILD).trimmed().data());
         lua_settable(L, -3);
@@ -12720,7 +12729,7 @@ int TLuaInterpreter::gamepadGetList(lua_State* L)
         QGamepad *gamepad = new QGamepad(i);
         qDebug() << "Gamepad:" << i;
         qDebug() << "  device id:   " << gamepad->deviceId();
-        qDebug() << "  name:        " << gamepad->name();
+        qDebug() << "  name:        " << gamepad->name().toUtf8().constData();
         qDebug() << "  is connected?" << gamepad->isConnected();
         lua_pushnumber(L, i);
         lua_pushnumber(L, gamepad->deviceId());
@@ -12771,7 +12780,7 @@ int TLuaInterpreter::gamepadGetStatus(lua_State* L)
         lua_newtable(L);
 
         lua_pushstring(L, "name");
-        lua_pushstring(L, gamepad->name());
+        lua_pushstring(L, gamepad->name().toUtf8().constData());
         lua_settable(L, -3);
 
         lua_pushstring(L, "connected");
@@ -12784,11 +12793,17 @@ int TLuaInterpreter::gamepadGetStatus(lua_State* L)
         // key and value pairs?
 
         lua_settable(L, -3); // buttons
+        lua_pushstring(L, "axes");
+        lua_newtable(L); // making a table within buttons
+
+        // key and value pairs?
+
+        lua_settable(L, -3); // axes
         lua_settable(L, -3);
         return 1;
 
     } else { // specific data
-        lua_pushstring("not written yet");
+        lua_pushstring(L, "not written yet");
     }
 
     return 1;
@@ -15281,6 +15296,10 @@ void TLuaInterpreter::initLuaGlobals()
     lua_register(pGlobalLua, "ttsGetCurrentLine", TLuaInterpreter::ttsGetCurrentLine);
     lua_register(pGlobalLua, "ttsGetState", TLuaInterpreter::ttsGetState);
 #endif // QT_TEXTTOSPEECH_LIB
+#ifdef QT_GAMEPAD_LIB
+    lua_register(pGlobalLua, "gamepadGetList", TLuaInterpreter::gamepadGetList);
+    lua_register(pGlobalLua, "gamepadGetStatus", TLuaInterpreter::gamepadGetStatus);
+#endif // QT_GAMEPAD_LIB
     lua_register(pGlobalLua, "setServerEncoding", TLuaInterpreter::setServerEncoding);
     lua_register(pGlobalLua, "getServerEncoding", TLuaInterpreter::getServerEncoding);
     lua_register(pGlobalLua, "getServerEncodingsList", TLuaInterpreter::getServerEncodingsList);
