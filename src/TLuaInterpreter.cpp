@@ -12723,7 +12723,7 @@ int TLuaInterpreter::gamepadGetList(lua_State* L)
 {
     qDebug()<<"TIM: gamepadGetList was called";
     auto gamepads = QGamepadManager::instance()->connectedGamepads();
-    qDebug() << "Number of gamepads:" << gamepads.size();
+    qDebug() << "TIM: Number of gamepads:" << gamepads.size();
     lua_newtable(L);
     for (auto i : gamepads){
         QGamepad *gamepad = new QGamepad(i);
@@ -12744,6 +12744,9 @@ int TLuaInterpreter::gamepadGetStatus(lua_State* L)
 {
 // arg 1 is device ID, arg 2 is optional data to look at, else return whole set of data
 // not sure if I want that optional thing... what to call them? "button1" and so on?
+// or ask for "buttons" to get that subset?
+// getModuleInfo is what I was looking at..
+// maybe just skip that because it'd add complication
     int n = lua_gettop(L);
     int gamepadId = getVerifiedInt(L, __func__, 1, "gamepad id");
     auto gamepads = QGamepadManager::instance()->connectedGamepads();
@@ -12759,14 +12762,13 @@ int TLuaInterpreter::gamepadGetStatus(lua_State* L)
         return 2;
     }
     QGamepad *gamepad = new QGamepad(gamepadId);
-
+#ifdef FARTS
     QString info;
     if (n > 1) {
         info = getVerifiedString(L, __func__, 2, "info", true);
-        // Tim forgot what "true" means... required?
-        // maybe it pushes the error onto stack for you?
     }
     if(info.isEmpty()) { // list everything
+#endif /* FARTS */
     /*
     How to structure it?
 
@@ -12776,36 +12778,104 @@ int TLuaInterpreter::gamepadGetStatus(lua_State* L)
     axes: { 0.0, 0.1, ...} for 4 axes
 
         // getProfileStats is an example of how to do subtable stuff
+
+
+--Xbox 360, Xbox One
+btnNames = {"A","B","X","Y","LB","RB","LT","RT","Back","Start","L3","R3","D-Up","D-Down","D-Right","D-Left"}
+axNames = {"Left Stick X", "Left Stick Y", "Right Stick X", "Right Stick Y"}
+
+Oh right, the button events give values of 0 and 1 instead of just pressed and released
+the trigger buttons both are doubles instead of booleans
+so all the booleans, I should put 0 and 1 instead of true and false?
+I don't have gamepad handy, what happens if I pull trigger?
+Is it a bunch of buttonpress events with increasing values?
+buttonCenter... is that the Xbox logo? I never saw an event, I think Windows hijacks it
+does linux also hijack it? will I never see the event?
+Should I make some internal functions to for example make list of buttons?
+Will it be a problem if I push integers and doubles?
+For the event, what is the typeof used? (I forget if Lua treats 1.0 and 1 different?)
     */
         lua_newtable(L);
-
         lua_pushstring(L, "name");
         lua_pushstring(L, gamepad->name().toUtf8().constData());
         lua_settable(L, -3);
-
         lua_pushstring(L, "connected");
         lua_pushboolean(L, gamepad->isConnected());
         lua_settable(L, -3);
-
+        // Gamepad events use numbers rather than booleans, so will use numbers here.
         lua_pushstring(L, "buttons");
         lua_newtable(L); // making a table within buttons
-
-        // key and value pairs?
-
+        lua_pushnumber(L, 0); // is it an issue to start with 0 like the events do?
+        lua_pushnumber(L, gamepad->buttonA() ? 1 : 0);
+        lua_settable(L, -3);
+        lua_pushnumber(L, 1);
+        lua_pushnumber(L, gamepad->buttonB() ? 1 : 0);
+        lua_settable(L, -3);
+        lua_pushnumber(L, 2);
+        lua_pushnumber(L, gamepad->buttonX() ? 1 : 0);
+        lua_settable(L, -3);
+        lua_pushnumber(L, 3);
+        lua_pushnumber(L, gamepad->buttonY() ? 1 : 0);
+        lua_settable(L, -3);
+        lua_pushnumber(L, 4);
+        lua_pushnumber(L, gamepad->buttonL1() ? 1 : 0);
+        lua_settable(L, -3);
+        lua_pushnumber(L, 5);
+        lua_pushnumber(L, gamepad->buttonR1() ? 1 : 0);
+        lua_settable(L, -3);
+        lua_pushnumber(L, 6);
+        lua_pushnumber(L, gamepad->buttonL2()); // analog trigger
+        lua_settable(L, -3);
+        lua_pushnumber(L, 7);
+        lua_pushnumber(L, gamepad->buttonR2()); // analog trigger
+        lua_settable(L, -3);
+        lua_pushnumber(L, 8);
+        lua_pushnumber(L, gamepad->buttonSelect() ? 1 : 0);
+        lua_settable(L, -3);
+        lua_pushnumber(L, 9);
+        lua_pushnumber(L, gamepad->buttonStart() ? 1 : 0);
+        lua_settable(L, -3);
+        lua_pushnumber(L, 10);
+        lua_pushnumber(L, gamepad->buttonL3() ? 1 : 0);
+        lua_settable(L, -3);
+        lua_pushnumber(L, 11);
+        lua_pushnumber(L, gamepad->buttonR3() ? 1 : 0);
+        lua_settable(L, -3);
+        lua_pushnumber(L, 12);
+        lua_pushnumber(L, gamepad->buttonUp() ? 1 : 0);
+        lua_settable(L, -3);
+        lua_pushnumber(L, 13);
+        lua_pushnumber(L, gamepad->buttonDown() ? 1 : 0);
+        lua_settable(L, -3);
+        lua_pushnumber(L, 14);
+        lua_pushnumber(L, gamepad->buttonRight() ? 1 : 0);
+        lua_settable(L, -3);
+        lua_pushnumber(L, 15);
+        lua_pushnumber(L, gamepad->buttonLeft() ? 1 : 0);
+        lua_settable(L, -3);
         lua_settable(L, -3); // buttons
         lua_pushstring(L, "axes");
-        lua_newtable(L); // making a table within buttons
-
-        // key and value pairs?
-
+        lua_newtable(L);
+        lua_pushnumber(L, 0);
+        lua_pushnumber(L, gamepad->axisLeftX());
+        lua_settable(L, -3);
+        lua_pushnumber(L, 1);
+        lua_pushnumber(L, gamepad->axisLeftY());
+        lua_settable(L, -3);
+        lua_pushnumber(L, 2);
+        lua_pushnumber(L, gamepad->axisRightX());
+        lua_settable(L, -3);
+        lua_pushnumber(L, 3);
+        lua_pushnumber(L, gamepad->axisRightY());
         lua_settable(L, -3); // axes
         lua_settable(L, -3);
         return 1;
-
+#ifdef FARTS
     } else { // specific data
-        lua_pushstring(L, "not written yet");
+        lua_pushstring(L, "not written yet, maybe skip this optional arg");
+        return 1;
     }
-
+#endif /* FARTS */
     return 1;
 }
 
