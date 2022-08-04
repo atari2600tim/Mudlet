@@ -17382,14 +17382,6 @@ int TLuaInterpreter::setConfig(lua_State * L)
         host.mUSE_UNIX_EOL = getVerifiedBool(L, __func__, 2, "value");
         return success();
     }
-    if (key == qsl("autoClearInputLine")) {
-        host.mAutoClearCommandLineAfterSend = getVerifiedBool(L, __func__, 2, "value");
-        return success();
-    }
-    if (key == qsl("showSentText")) {
-        host.mPrintCommand = getVerifiedBool(L, __func__, 2, "value");
-        return success();
-    }
     if (key == qsl("fixUnnecessaryLinebreaks")) {
         host.set_USE_IRE_DRIVER_BUGFIX(getVerifiedBool(L, __func__, 2, "value"));
         return success();
@@ -17430,26 +17422,6 @@ int TLuaInterpreter::setConfig(lua_State * L)
             host.mBlankLineBehaviour = Host::BlankLineBehaviour::Hide;
         } else if (behaviour == qsl("replacewithspace")) {
             host.mBlankLineBehaviour = Host::BlankLineBehaviour::ReplaceWithSpace;
-        }
-    }
-    if (key == qsl("caretShortcut")) {
-        static const QStringList keys{"none", "tab", "ctrltab", "f6"};
-        const auto key = getVerifiedString(L, __func__, 2, "value");
-
-        if (!keys.contains(key)) {
-            lua_pushfstring(L, "%s: bad argument #%d type (key should be one of %s, got %s!)",
-                __func__, 2, keys.join(qsl(", ")).toUtf8().constData(), key.toUtf8().constData());
-            return lua_error(L);
-        }
-
-        if (key == qsl("none")) {
-            host.mCaretShortcut = Host::CaretShortcut::None;
-        } else if (key == qsl("tab")) {
-            host.mCaretShortcut = Host::CaretShortcut::Tab;
-        } else if (key == qsl("ctrltab")) {
-            host.mCaretShortcut = Host::CaretShortcut::CtrlTab;
-        } else if (key == qsl("f6")) {
-            host.mCaretShortcut = Host::CaretShortcut::F6;
         }
     }
 
