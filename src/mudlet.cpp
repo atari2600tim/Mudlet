@@ -2520,7 +2520,6 @@ void mudlet::startAutoLogin(const QStringList& cliProfiles)
         if (val.toInt() == Qt::Checked) {
             doAutoLogin(pHost);
             openedProfile = true;
-            hostList.removeOne(pHost);
         }
     }
 
