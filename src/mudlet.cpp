@@ -2505,11 +2505,21 @@ void mudlet::startAutoLogin(const QStringList& cliProfiles)
     hostList += TGameDetails::keys();
     hostList << qsl("Mudlet self-test");
     hostList.removeDuplicates();
+    cliProfiles.removeDuplicates();
     bool openedProfile = false;
+
+    for (auto& pHost : cliProfiles){
+        if (hostlist.contains(pHost)) {
+            hostList.removeOne(pHost);
+            doAutoLogin(pHost);
+            openedProfile = true;
+        }
+    }
 
     for (auto& pHost : hostList) {
         QString val = readProfileData(pHost, qsl("autologin"));
-        if (val.toInt() == Qt::Checked || cliProfiles.contains(pHost)) {
+        if (val.toInt() == Qt::Checked) {
+            hostList.removeOne(pHost);
             doAutoLogin(pHost);
             openedProfile = true;
         }
