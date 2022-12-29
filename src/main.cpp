@@ -218,12 +218,15 @@ int main(int argc, char* argv[])
     QCommandLineOption mirrorToStdout(QStringList() << "m" << "mirror", QCoreApplication::translate("main", "Mirror output of all consoles to STDOUT"));
     parser.addOption(mirrorToStdout);
 
-    parser.parse(app->arguments());
+    bool parsedCommandLineOk = parser.parse(app->arguments());
 
     // Non-GUI actions --help and --version as suggested by GNU coding standards,
     // section 4.7: http://www.gnu.org/prep/standards/standards.html#Command_002dLine-Interfaces
     QStringList texts;
-    if (parser.isSet(showHelp)) {
+    if (!parsedCommandLineOk || parser.isSet(showHelp)) {
+        if (!parsedCommandLineOk) {
+            texts << qsl("%1\n\n").arg(QCoreApplication::translate("main", "Error: %1").arg(parser.errorText()));
+        }
         // Do "help" action
         texts << qsl("%1\n").arg(QCoreApplication::translate("main", "Usage: %1 [OPTION...]\n"
                                "       -h, --help           displays this message.\n"
@@ -276,7 +279,7 @@ int main(int argc, char* argv[])
         texts << qsl("%1\n").arg(QCoreApplication::translate("main", "Report bugs to: https://github.com/Mudlet/Mudlet/issues"));
         texts << qsl("%1\n").arg(QCoreApplication::translate("main", "Project home page: http://www.mudlet.org/"));
         std::cout << texts.join(QString()).toStdString();
-        return 0;
+        return parsedCommandLineOk ? 0 :-1;
     }
 
     if (parser.isSet(showVersion)) {
