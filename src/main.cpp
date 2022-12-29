@@ -203,7 +203,7 @@ int main(int argc, char* argv[])
     }
 
     QCommandLineParser parser;
-    QCommandLineOption profileToOpen(qsl("profile"), QCoreApplication::translate("main", "Profile to open automatically"), QCoreApplication::translate("main", "profile"));
+    QCommandLineOption profileToOpen(QStringList() << qsl("p") << qsl("profile"), QCoreApplication::translate("main", "Profile to open automatically"), QCoreApplication::translate("main", "profile"));
     parser.addOption(profileToOpen);
 
     QCommandLineOption showHelp(QStringList() << "h" <<"help", QCoreApplication::translate("main", "Display help and exit"));
@@ -229,7 +229,7 @@ int main(int argc, char* argv[])
                                "       -h, --help           displays this message.\n"
                                "       -v, --version        displays version information.\n"
                                "       -q, --quiet          no splash screen on startup.\n"
-                               "       --profile=<profile>  additional profile to open\n\n"
+                               "       -p, --profile=<profile>  additional profile to open, may be repeated\n\n"
                                "There are other inherited options that arise from the Qt Libraries which are\n"
                                "less likely to be useful for normal use of this application:")
                  .arg(QLatin1String(APP_TARGET)));
