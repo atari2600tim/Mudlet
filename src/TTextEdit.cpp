@@ -1595,9 +1595,9 @@ void TTextEdit::slot_copySelectionToClipboardHTML()
         }
         if (y == mPA.y()) { // First line of selection
             if (isSingleLine) {
-                text.append(mpBuffer->bufferToHtml(mShowTimeStamps, y, mPB.x() + 1, mPA.x(), 0));
+                text.append(mpBuffer->bufferToHtml(mShowTimeStamps, y, mPB.x() + 1, mPA.x()));
             } else { // Not single line
-                text.append(mpBuffer->bufferToHtml(mShowTimeStamps, y, -1, mPA.x(), mPA.x()));
+                text.append(mpBuffer->bufferToHtml(mShowTimeStamps, y, -1, mPA.x()));
             }
         } else if (y == mPB.y()) { // Last line of selection
             text.append(mpBuffer->bufferToHtml(mShowTimeStamps, y, mPB.x() + 1));
