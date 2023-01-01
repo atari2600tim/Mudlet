@@ -3088,12 +3088,8 @@ QStringList TBuffer::getEndLines(int n)
 // arguments - the positions within the line refer to raw QChar/TChar indexes
 // and not graphemes, it is up to the caller to ensure those indexes are useful
 // this method only checks that they fit.
-// Note: spacePadding is expected to be non-zero on ONLY the first call to this
-// method - it is needed to pad the first line out when the first line of a
-// selection is not a complete line of text and there are more lines to follow
 QString TBuffer::bufferToHtml(const bool showTimeStamp /*= false*/, const int row /*= -1*/,
-                              const int endColumn /*= -1*/, const int startColumn /*= 0*/,
-                              int spacePadding /*= 0*/)
+                              const int endColumn /*= -1*/, const int startColumn /*= 0*/)
 {
     int pos = startColumn;
     QString s;
@@ -3126,10 +3122,6 @@ QString TBuffer::bufferToHtml(const bool showTimeStamp /*= false*/, const int ro
     // Assume we are on the first line until told otherwise - and we will need
     // to NOT close a previous <span ...>:
     bool firstSpan = true;
-    // If times stamps are to be shown AND the first line is a partial
-    // then we need:
-    // <span timestamp format>Timestamp (13 chars)</span><span default>___padding spaces___</span><span first chunk style>first chunk...
-    // we will NOT need a closing "</span>"
     if (showTimeStamp && !timeBuffer.at(row).isEmpty()) {
         // TODO: formatting according to TTextEdit.cpp: if( i2 < timeOffset ) - needs updating if we allow the colours to be user set:
         s.append(qsl("<span style=\"color: rgb(200,150,0); background: rgb(22,22,22); \">%1").arg(timeBuffer.at(row).left(timeStampFormat.length())));
@@ -3141,20 +3133,6 @@ QString TBuffer::bufferToHtml(const bool showTimeStamp /*= false*/, const int ro
         // We are no longer before the first span - so we need to flag that
         // there will be one to close:
         firstSpan = false;
-    }
-
-    if (spacePadding > 0) {
-        // used for "copy HTML", this is the first line of selection (because of
-        // the padding needed)
-        if (firstSpan) {
-            // Must skip the close of the preceding span as there isn't one
-            firstSpan = false;
-        } else {
-            s.append(QLatin1String("</span>"));
-        }
-
-        // Pad out with spaces to the right so a partial first line lines up
-        s.append(qsl("<span>%1").arg(QString(spacePadding, QChar::Space)));
     }
 
     for (auto cookedPos = static_cast<unsigned long>(pos); pos < lastPos; ++cookedPos, ++pos) {
