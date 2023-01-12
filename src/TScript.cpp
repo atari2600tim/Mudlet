@@ -75,7 +75,7 @@ void TScript::setEventHandlerList(QStringList handlerList)
     }
     mEventHandlerList.clear();
     for (int i = 0; i < handlerList.size(); i++) {
-        if (handlerList[i].size() < 1) {
+        if (handlerList.at(i).isEmpty()) {
             continue;
         }
         mEventHandlerList.append(handlerList[i]);
@@ -107,7 +107,7 @@ void TScript::compile()
 {
     if (mNeedsToBeCompiled) {
         if (!compileScript()) {
-            if (mudlet::debugMode) {
+            if (mudlet::smDebugMode) {
                 TDebug(Qt::white, Qt::red) << "ERROR: Lua compile error. compiling script of script:" << mName << "\n" >> mpHost;
             }
             mOK_code = false;
