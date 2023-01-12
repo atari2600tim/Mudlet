@@ -476,6 +476,8 @@ public:
 #endif
 
 
+    bool isCaretModeEnabled() { return dactionCaretMode->isChecked(); }
+
 public slots:
     void slot_closeCurrentProfile();
     void slot_closeProfileRequested(int);

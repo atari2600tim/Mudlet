@@ -1021,7 +1021,7 @@ void mudlet::scanForMudletTranslations(const QString& path)
 
         std::unique_ptr<QTranslator> pMudletTranslator = std::make_unique<QTranslator>();
         if (Q_LIKELY(pMudletTranslator->load(translationFileName, path))) {
-            // qDebug().noquote().nospace() << "    found a Mudlet translation for locale code: \"" << languageCode << "\".";
+            qDebug().noquote().nospace() << "    found a Mudlet translation for locale code: \"" << languageCode << "\".";
             if (!translationStats.isEmpty()) {
                 // For this to not be empty then we are reading the translations
                 // from the expected resource file and the translation
@@ -1099,7 +1099,7 @@ void mudlet::scanForQtTranslations(const QString& path)
         std::unique_ptr<QTranslator> pQtTranslator = std::make_unique<QTranslator>();
         QString translationFileName(qsl("qt_%1.qm").arg(languageCode));
         if (pQtTranslator->load(translationFileName, path)) {
-            // qDebug().noquote().nospace() << "    found a Qt translation for locale code: \"" << languageCode << "\"";
+            qDebug().noquote().nospace() << "    found a Qt translation for locale code: \"" << languageCode << "\"";
             /*
              * Unfortunately, success in this operation does not mean that
              * a qt_xx_YY.qm translation file has been located, as the
@@ -1115,7 +1115,7 @@ void mudlet::scanForQtTranslations(const QString& path)
             current.mQtTranslationFileName = translationFileName;
             itTranslation.setValue(current);
         } else {
-            // qDebug().noquote().nospace() << "    no Qt translation found for locale code: \"" << languageCode << "\"";
+            qDebug().noquote().nospace() << "    no Qt translation found for locale code: \"" << languageCode << "\"";
         }
     }
 }
@@ -1123,7 +1123,7 @@ void mudlet::scanForQtTranslations(const QString& path)
 void mudlet::loadTranslators(const QString& languageCode)
 {
     if (!mTranslatorsLoadedList.isEmpty()) {
-        // qDebug().nospace().noquote() << "mudlet::loadTranslators(\"" << languageCode << "\") INFO - uninstalling existing translation previously loaded...";
+        qDebug().nospace().noquote() << "mudlet::loadTranslators(\"" << languageCode << "\") INFO - uninstalling existing translation previously loaded...";
         QMutableListIterator<QPointer<QTranslator>> itTranslator(mTranslatorsLoadedList);
         itTranslator.toBack();
         while (itTranslator.hasPrevious()) {
@@ -1784,10 +1784,9 @@ void mudlet::readEarlySettings(const QSettings& settings)
     mUserLocale = QLocale(mInterfaceLanguage);
     if (mUserLocale == QLocale::c()) {
         qWarning().nospace().noquote() << "mudlet::readEarlySettings(...) WARNING - Unable to convert language code \"" << mInterfaceLanguage << "\" to a recognised locale, reverting to the POSIX 'C' one.";
-        return;
+    } else {
+        qDebug().nospace().noquote() << "mudlet::readEarlySettings(...) INFO - Using language code \"" << mInterfaceLanguage << "\" to switch to \"" << QLocale::languageToString(mUserLocale.language()) << " (" << QLocale::countryToString(mUserLocale.country()) << ")\" locale.";
     }
-
-//    qDebug().nospace().noquote() << "mudlet::readEarlySettings(...) INFO - Using language code \"" << mInterfaceLanguage << "\" to switch to \"" << QLocale::languageToString(mUserLocale.language()) << " (" << QLocale::countryToString(mUserLocale.country()) << ")\" locale.";
 }
 
 void mudlet::readLateSettings(const QSettings& settings)
@@ -2836,6 +2835,16 @@ void mudlet::slot_multiView(const bool state)
         // the active one then make one (the first) the active one:
         slot_tabChanged(0);
     }
+}
+
+void mudlet::slot_caret_mode(bool state) const
+{
+    // FIXME: Support multiple hosts.
+    if (!mpCurrentActiveHost) {
+        return;
+    }
+
+    mpCurrentActiveHost->mpConsole->setCaretMode(state);
 }
 
 // Called by the short-cut to the menu item that doesn't pass the checked state

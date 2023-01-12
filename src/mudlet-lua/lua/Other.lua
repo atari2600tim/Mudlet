@@ -8,6 +8,9 @@ mudlet.supports = {
   namedPatterns = true,
   osVersion = true
 }
+if gamepadGetList then
+   mudlet.supports.gamepad = true
+end
 
 -- enforce uniform locale so scripts don't get
 -- tripped up on number representation differences (. vs ,)
@@ -1162,6 +1165,14 @@ if not ttsSpeak then --check if ttsSpeak is defined, if not then Mudlet lacks TT
   local funcs = {"ttsClearQueue", "ttsGetCurrentLine", "ttsGetCurrentVoice", "ttsGetQueue", "ttsGetState", "ttsGetVoices", "ttsPause", "ttsQueue", "ttsResume", "ttsSpeak", "ttsSetPitch", "ttsSetRate", "ttsSetVolume", "ttsSetVoiceByIndex", "ttsSetVoiceByName", "ttsSkip"}
   for _,fn in ipairs(funcs) do
     _G[fn] = function() debugc(string.format("%s: Mudlet was compiled without TTS capabilities", fn)) end
+  end
+end
+
+-- Add dummy functions for the gamepad functions to avoid errors on builds lacking gamepad library
+if not gamepadGetList then
+  local funcs = {"gamepadGetList", "gamepadGetStatus"}
+  for _,fn in ipairs(funcs) do
+    _G[fn] = function() debugc(string.format("%s: Mudlet was compiled without gamepad capabilities", fn)) end
   end
 end
 
