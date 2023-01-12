@@ -34,7 +34,8 @@
 #include <QDebug>
 #include "post_guard.h"
 
-dlgAboutDialog::dlgAboutDialog(QWidget* parent) : QDialog(parent)
+dlgAboutDialog::dlgAboutDialog(QWidget* parent)
+: QDialog(parent)
 {
     setupUi(this);
 
@@ -90,7 +91,7 @@ dlgAboutDialog::dlgAboutDialog(QWidget* parent) : QDialog(parent)
 
         // Repeat for other text, but we know it will fit at given size
         // PLACEMARKER: Date-stamp needing annual update
-        QString sourceCopyrightText = qsl("©️ Mudlet makers 2008-2022");
+        QString sourceCopyrightText = qsl("©️ Mudlet makers 2008-2023");
         QFont font(qsl("DejaVu Serif"), 16, QFont::Bold | QFont::Serif | QFont::PreferMatch | QFont::PreferAntialias);
         QTextLayout copyrightTextLayout(sourceCopyrightText, font, painter.device());
         copyrightTextLayout.beginLayout();
@@ -1042,7 +1043,7 @@ void dlgAboutDialog::setSupportersTab(const QString& htmlHead)
 {
     // see https://www.patreon.com/mudlet if you'd like to be added!
     QStringList mightier_than_swords = {"Joshua C. Burt", "Maiyannah Bishop", "Qwindor Rousseau", "Stick In the MUD 🎙"};
-    QStringList on_a_plaque = {"Vadim Peretokin"};
+    QStringList on_a_plaque = {"demonnic", "Henry Hsiao"};
     int image_counter{1};
 
     if (!supportersDocument) {
@@ -1096,11 +1097,19 @@ void dlgAboutDialog::setSupportersTab(const QString& htmlHead)
     textBrowser_supporters->setOpenExternalLinks(true);
 }
 
-QString dlgAboutDialog::createBuildInfo() const {
-    return qsl("<table border=\"0\" style=\"margin-bottom:18px; margin-left:36px; margin-right:36px;\" width=\"100%\" cellspacing=\"2\" cellpadding=\"0\">\n")
-        .append(qsl("<tr><td colspan=\"2\" style=\"font-weight: 800\">%1</td></tr>").arg(tr("Technical information:")))
-        .append(qsl("<tr><td style=\"padding-right: 10px;\">%1<td>%2</td></tr>").arg(tr("Version"), mudlet::self()->version))
-        .append(qsl("<tr><td style=\"padding-right: 10px;\">%1</td><td>%2</td></tr>").arg(tr("OS"), QSysInfo::prettyProductName()))
-        .append(qsl("<tr><td style=\"padding-right: 10px;\">%1</td><td>%2</td></tr>").arg(tr("CPU"), QSysInfo::currentCpuArchitecture()))
-        .append(qsl("</table>"));
+QString dlgAboutDialog::createBuildInfo() const
+{
+    return qsl("<table border=\"0\" style=\"margin-bottom:18px; margin-left:36px; margin-right:36px;\" width=\"100%\" cellspacing=\"2\" cellpadding=\"0\">\n"
+               "<tr><td colspan=\"2\" style=\"font-weight: 800\">%1</td></tr>\n"
+               "<tr><td style=\"padding-right: 10px;\">%2<td>%3</td></tr>\n"
+               "<tr><td style=\"padding-right: 10px;\">%4</td><td>%5</td></tr>\n"
+               "<tr><td style=\"padding-right: 10px;\">%6</td><td>%7</td></tr>\n"
+               "</table>")
+            .arg(tr("Technical information:"), // %1
+                 tr("Version"), // %2
+                 mudlet::self()->scmVersion, // %3
+                 tr("OS"), // %4
+                 QSysInfo::prettyProductName(), // %5
+                 tr("CPU"), // %6
+                 QSysInfo::currentCpuArchitecture()); // %7
 }

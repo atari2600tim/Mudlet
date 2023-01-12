@@ -1,9 +1,10 @@
 ############################################################################
-#    Copyright (C) 2013-2015, 2017-2018, 2020-2021 by Stephen Lyons        #
+#    Copyright (C) 2013-2015, 2017-2018, 2020-2023 by Stephen Lyons        #
 #                                                - slysven@virginmedia.com #
 #    Copyright (C) 2014 by Ahmed Charles - acharles@outlook.com            #
 #    Copyright (C) 2017 by Ian Adkins - ieadkins@gmail.com                 #
 #    Copyright (C) 2018 by Huadong Qi - novload@outlook.com                #
+#    Copyright (C) 2022 by Thiago Jung Bauermann - bauermann@kolabnow.com  #
 #    Copyright (C) 2022 by Piotr Wilczynski - delwing@gmail.com            #
 #                                                                          #
 #    This program is free software; you can redistribute it and/or modify  #
@@ -24,19 +25,19 @@
 
 ############################################################################
 #                                                                          #
-#    NOTICE: FreeBSD and GNU/Hurd are not officially supported platforms   #
-#    as such; the work on getting them working has been done by myself,    #
-#    and other developers, unless they have explicitly said so, are not    #
-#    able to address issues relating specifically to these Operating       #
-#    Systems. Nevertheless users of either are equally welcome to          #
-#    contribute to the development of Mudlet - bugfixes and enhancements   #
-#    are welcome from all!                                                 #
-#                         Stephen Lyons, February 2018, updated March 2021 #
+#    NOTICE: FreeBSD, OpenBSD and GNU/Hurd are not officially supported    #
+#    platforms as such; the work on getting them working has been done by  #
+#    myself, and other developers, unless they have explicitly said so,    #
+#    are not able to address issues relating specifically to these         #
+#    Operating Systems. Nevertheless users of these operating systems are  #
+#    equally welcome to contribute to the development of Mudlet - bugfixes #
+#    and enhancements are welcome from all!                                #
+#        Stephen Lyons, February 2018, updated March 2021 & October 2022   #
 #                                                                          #
 ############################################################################
 
-lessThan(QT_MAJOR_VERSION, 5)|if(lessThan(QT_MAJOR_VERSION,6):lessThan(QT_MINOR_VERSION, 11)) {
-    error("Mudlet requires Qt 5.11 or later")
+lessThan(QT_MAJOR_VERSION, 5)|if(lessThan(QT_MAJOR_VERSION,6):lessThan(QT_MINOR_VERSION, 14)) {
+    error("Mudlet requires Qt 5.14 or later")
 }
 
 # Including IRC Library
@@ -74,6 +75,14 @@ msvc:QMAKE_CXXFLAGS += -MP
 
 # Mac specific flags.
 macx:QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.13
+
+# Used to force an include of winsock2.h BEFORE Qt tries to include winsock.h
+# from windows.h - only needed on Windows builds but we cannot use Q_OS_WIN32
+# for an #ifdef because we need a symbol that is defined BEFORE we include
+# any Qt header file!
+win32 {
+    DEFINES += INCLUDE_WINSOCK2
+}
 
 QT += network uitools multimedia gui concurrent
 qtHaveModule(gamepad) {
@@ -226,6 +235,21 @@ isEmpty( MAIN_BUILD_SYSTEM_TEST ) | !equals( MAIN_BUILD_SYSTEM_TEST, "NO" ) {
 # We should consider the XDG specifications in:
 # https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
 
+########################### Debugging code inclusions ##########################
+# Controls the include/selection of extra code to aide developers debug various
+# features of Mudlet, generally speaking they will not be '#define'd in
+# production builds - uncomment the 'DEFINES+=DEBUG_XXX' line here to include
+# the relevant code:
+#
+# Other DEFINES+=DEBUG_XXX expected here as a result of:
+# https://github.com/Mudlet/Mudlet/issues/6314
+#
+# * Produce a timestamped message on the OS's command line when an autosave of
+# the map file gets requested and when such a request gets actioned (or
+# rejected because the profile is being loaded):
+# DEFINES+=DEBUG_MAPAUTOSAVE
+
+
 unix:!macx {
 # Distribution packagers would be using PREFIX = /usr but this is accepted
 # destination place for local builds for software for all users:
@@ -247,6 +271,15 @@ unix:!macx {
     isEmpty( BINDIR ) BINDIR = $${PREFIX}/bin
 # Again according to FHS /usr/local/share/games is the corresponding place for locally built games documentation:
     isEmpty( DOCDIR ) DOCDIR = $${DATAROOTDIR}/doc/mudlet
+    openbsd {
+        LIBS += \
+# Some OS platforms have a hyphen (I think Cygwin does as well):
+            -llua5.1 \
+            -lhunspell-1.7
+        INCLUDEPATH += \
+            /usr/local/include \
+            /usr/local/include/lua-5.1
+    }
     freebsd {
         LIBS += \
 # Some OS platforms have a hyphen (I think Cygwin does as well):
@@ -258,7 +291,8 @@ unix:!macx {
 # FreeBSD (at least) supports multiple Lua versions (and 5.1 is not the default anymore):
         INCLUDEPATH += \
             /usr/local/include/lua51
-    } else {
+    }
+    linux {
         LIBS += \
             -llua5.1 \
             -lhunspell
@@ -317,7 +351,8 @@ unix:!macx {
         -lzip \                 # for dlgPackageExporter
         -lz \                   # for ctelnet.cpp
         -lpugixml \
-        -lWs2_32
+        -lws2_32 \
+        -loleaut32
 
     # Leave this unset - we do not need it on Windows:
     # LUA_DEFAULT_DIR =
@@ -356,12 +391,12 @@ macx {
 }
 
 # use ccache if available
-unix {
-    BASE_CXX = $$QMAKE_CXX
-    # common linux location
-    exists(/usr/bin/ccache):QMAKE_CXX = ccache $$BASE_CXX
-    # common macos location
-    exists(/usr/local/bin/ccache):QMAKE_CXX = ccache $$BASE_CXX
+BASE_CXX = $$QMAKE_CXX
+BASE_C = $$QMAKE_C
+# common linux location
+exists(/usr/bin/ccache)|exists(/usr/local/bin/ccache)|exists(C:/Program Files/ccache/ccache.exe) {
+    QMAKE_CXX = ccache $$BASE_CXX
+    QMAKE_C = ccache $$BASE_C
 }
 
 # There does not seem to be an obvious pkg-config option for this one, it is
@@ -414,10 +449,6 @@ win32 {
         message("git submodule for required lua code formatter source code missing, executing 'git submodule update --init' to get it...")
         system("cd $${PWD}\.. & git submodule update --init 3rdparty/lcf")
     }
-    !exists("$${PWD}/../3rdparty/qt-ordered-map/src/orderedmap.h") {
-        message("git submodule for required Qt ordered map source code missing, executing 'git submodule update --init' to get it...")
-        system("cd $${PWD}\.. & git submodule update --init 3rdparty/qt-ordered-map")
-    }
     contains( DEFINES, "INCLUDE_OWN_QT5_KEYCHAIN" ) {
         !exists("$${PWD}/../3rdparty/qtkeychain/keychain.h") {
             message("git submodule for required QtKeychain source code missing, executing 'git submodule update --init' to get it...")
@@ -432,10 +463,6 @@ win32 {
     !exists("$${PWD}/../3rdparty/lcf/lcf-scm-1.rockspec") {
         message("git submodule for required lua code formatter source code missing, executing 'git submodule update --init' to get it...")
         system("cd $${PWD}/.. ; git submodule update --init 3rdparty/lcf")
-    }
-    !exists("$${PWD}/../3rdparty/qt-ordered-map/src/orderedmap.h") {
-        message("git submodule for required Qt ordered map source code missing, executing 'git submodule update --init' to get it...")
-        system("cd $${PWD}/.. ; git submodule update --init 3rdparty/qt-ordered-map")
     }
     contains( DEFINES, "INCLUDE_OWN_QT5_KEYCHAIN" ) {
         !exists("$${PWD}/../3rdparty/qtkeychain/keychain.h") {
@@ -479,10 +506,6 @@ exists("$${PWD}/../3rdparty/edbee-lib/edbee-lib/edbee-lib.pri") {
 
 !exists("$${PWD}/../3rdparty/lcf/lcf-scm-1.rockspec") {
     error("Cannot locate lua code formatter submodule source code, build abandoned!")
-}
-
-!exists("$${PWD}/../3rdparty/qt-ordered-map/src/orderedmap.h") {
-    error("Cannot locate Qt ordered map submodule source code, build abandoned!")
 }
 
 contains( DEFINES, "INCLUDE_OWN_QT5_KEYCHAIN" ) {
@@ -534,7 +557,7 @@ SOURCES += \
     dlgPackageManager.cpp \
     dlgProfilePreferences.cpp \
     dlgRoomExits.cpp \
-    dlgRoomSymbol.cpp \
+    dlgRoomProperties.cpp \
     dlgScriptsMainArea.cpp \
     dlgSourceEditorArea.cpp \
     dlgSourceEditorFindArea.cpp \
@@ -559,6 +582,7 @@ SOURCES += \
     ScriptUnit.cpp \
     ShortcutsManager.cpp \
     T2DMap.cpp \
+    TAccessibleTextEdit.cpp \
     TAction.cpp \
     TAlias.cpp \
     TArea.cpp \
@@ -624,11 +648,14 @@ SOURCES += \
     XMLimport.cpp
 
 HEADERS += \
+    ../3rdparty/discord/rpc/include/discord_register.h \
+    ../3rdparty/discord/rpc/include/discord_rpc.h \
     ActionUnit.h \
+    Announcer.h \
     AliasUnit.h \
     AltFocusMenuBarDisable.h \
-    DarkTheme.h \
     ctelnet.h \
+    DarkTheme.h \
     discord.h \
     dlgAboutDialog.h \
     dlgActionMainArea.h \
@@ -646,7 +673,7 @@ HEADERS += \
     dlgPackageManager.h \
     dlgProfilePreferences.h \
     dlgRoomExits.h \
-    dlgRoomSymbol.h \
+    dlgRoomProperties.h \
     dlgScriptsMainArea.h \
     dlgSourceEditorArea.h \
     dlgSourceEditorFindArea.h \
@@ -671,6 +698,8 @@ HEADERS += \
     ScriptUnit.h \
     ShortcutsManager.h \
     T2DMap.h \
+    TAccessibleConsole.h \
+    TAccessibleTextEdit.h \
     TAction.h \
     TAlias.h \
     TArea.h \
@@ -688,10 +717,10 @@ HEADERS += \
     TEvent.h \
     TFlipButton.h \
     TForkedProcess.h \
+    TGameDetails.h \
     TimerUnit.h \
     TKey.h \
     TLabel.h \
-    TScrollBox.h \
     TLinkStore.h \
     TLuaInterpreter.h \
     TMainConsole.h \
@@ -699,6 +728,7 @@ HEADERS += \
     TMapLabel.h \
     TMatchState.h \
     TMedia.h \
+    TMediaData.h \
     TMxpBRTagHandler.h \
     TMxpClient.h \
     TMxpColorTagHandler.h \
@@ -719,7 +749,7 @@ HEADERS += \
     TMxpTagHandler.h \
     TMxpTagParser.h \
     TMxpTagProcessor.h \
-    TMxpSupportTagHandler.cpp \
+    TMxpSupportTagHandler.h \
     TMxpVarTagHandler.h \
     TMxpVersionTagHandler.h \
     Tree.h \
@@ -727,6 +757,7 @@ HEADERS += \
     TRoom.h \
     TRoomDB.h \
     TScript.h \
+    TScrollBox.h \
     TSplitter.h \
     TSplitterHandle.h \
     TStringUtils.h \
@@ -746,6 +777,22 @@ HEADERS += \
     ../3rdparty/discord/rpc/include/discord_register.h \
     ../3rdparty/discord/rpc/include/discord_rpc.h
 
+macx|win32 {
+    macx {
+        OBJECTIVE_SOURCES += AnnouncerMac.mm
+    }
+
+    win32 {
+        SOURCES += AnnouncerWindows.cpp \
+            uiawrapper.cpp
+
+        HEADERS += uiawrapper.h
+    }
+} else {
+    # Everything else
+    SOURCES += \
+        AnnouncerUnix.cpp
+}
 
 # This is for compiled UI files, not those used at runtime through the resource file.
 FORMS += \
@@ -767,7 +814,7 @@ FORMS += \
     ui/package_manager.ui \
     ui/profile_preferences.ui \
     ui/room_exits.ui \
-    ui/room_symbol.ui \
+    ui/room_properties.ui \
     ui/scripts_main_area.ui \
     ui/source_editor_area.ui \
     ui/source_editor_find_area.ui \
