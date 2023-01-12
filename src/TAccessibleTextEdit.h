@@ -4,7 +4,8 @@
 /***************************************************************************
  *   Copyright (C) 2008-2013 by Heiko Koehn - KoehnHeiko@googlemail.com    *
  *   Copyright (C) 2014-2017 by Ahmed Charles - acharles@outlook.com       *
- *   Copyright (C) 2014-2020 by Stephen Lyons - slysven@virginmedia.com    *
+ *   Copyright (C) 2014-2020, 2022 by Stephen Lyons                        *
+ *                                               - slysven@virginmedia.com *
  *   Copyright (C) 2022 by Thiago Jung Bauermann - bauermann@kolabnow.com  *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -34,20 +35,24 @@
 class TAccessibleTextEdit : public QAccessibleWidget, public QAccessibleTextInterface
 {
 public:
-    explicit TAccessibleTextEdit(QWidget* w) : QAccessibleWidget(w, QAccessible::EditableText)
+    explicit TAccessibleTextEdit(QWidget* w)
+    : QAccessibleWidget(w, QAccessible::EditableText)
     {
         Q_ASSERT(isValid());
     }
 
     static QAccessibleInterface* textEditFactory(const QString &classname, QObject *object)
     {
-        QAccessibleInterface *interface = nullptr;
+        // The original identifier "interface" was no good as it is an existing
+        // macro (on MSYS2/Mingw-w64) and breaks compilation on that platform in
+        // an obsecure way:
+        QAccessibleInterface* pInterface = nullptr;
 
         if (classname == QLatin1String("TTextEdit") && object && object->isWidgetType()) {
-            interface = new TAccessibleTextEdit(static_cast<QWidget *>(object));
+            pInterface = new TAccessibleTextEdit(static_cast<QWidget *>(object));
         }
 
-        return interface;
+        return pInterface;
     }
 
     void* interface_cast(QAccessible::InterfaceType t) override

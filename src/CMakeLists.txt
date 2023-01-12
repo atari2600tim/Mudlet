@@ -1,6 +1,6 @@
 ############################################################################
 #    Copyright (C) 2014-2017 by Ahmed Charles - acharles@outlook.com       #
-#    Copyright (C) 2015-2018, 2020 by Stephen Lyons                        #
+#    Copyright (C) 2015-2018, 2020, 2023 by Stephen Lyons                  #
 #                                                - slysven@virginmedia.com #
 #    Copyright (C) 2018 by Huadong Qi - novload@outlook.com                #
 #    Copyright (C) 2022 by Thiago Jung Bauermann - bauermann@kolabnow.com  #
@@ -67,7 +67,7 @@ set(mudlet_SRCS
     dlgPackageManager.cpp
     dlgProfilePreferences.cpp
     dlgRoomExits.cpp
-    dlgRoomSymbol.cpp
+    dlgRoomProperties.cpp
     dlgScriptsMainArea.cpp
     dlgSourceEditorArea.cpp
     dlgSourceEditorFindArea.cpp
@@ -159,10 +159,11 @@ set(mudlet_SRCS
 
 if(APPLE)
   list(APPEND mudlet_SRCS AnnouncerMac.mm)
-elseif(UNIX AND NOT APPLE)
-  list(APPEND mudlet_SRCS AnnouncerLinux.cpp)
 elseif(WIN32)
   list(APPEND mudlet_SRCS AnnouncerWindows.cpp)
+  list(APPEND mudlet_SRCS uiawrapper.cpp)
+else()
+  list(APPEND mudlet_SRCS AnnouncerUnix.cpp)
 endif()
 
 # This is for compiled UI files, not those used at runtime
@@ -184,7 +185,7 @@ set(mudlet_UIS
     ui/package_manager.ui
     ui/profile_preferences.ui
     ui/room_exits.ui
-    ui/room_symbol.ui
+    ui/room_properties.ui
     ui/scripts_main_area.ui
     ui/source_editor_area.ui
     ui/source_editor_find_area.ui
@@ -219,7 +220,7 @@ set(mudlet_HDRS
     dlgPackageManager.h
     dlgProfilePreferences.h
     dlgRoomExits.h
-    dlgRoomSymbol.h
+    dlgRoomProperties.h
     dlgScriptsMainArea.h
     dlgSourceEditorArea.h
     dlgSourceEditorFindArea.h
@@ -320,6 +321,10 @@ set(mudlet_HDRS
     XMLexport.h
     XMLimport.h)
 
+if(WIN32)
+  list(APPEND mudlet_HDRS uiawrapper.h)
+endif()
+
 if(USE_UPDATER)
   list(APPEND mudlet_SRCS updater.cpp)
   list(APPEND mudlet_HDRS updater.h)
@@ -399,6 +404,22 @@ endif()
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 add_executable(mudlet ${mudlet_SRCS} ${mudlet_RCCS} ${mudlet_HDRS} ${mudlet_UIS})
+
+########################### Debugging code inclusions ##########################
+# Controls the include/selection of extra code to aide developers debug various
+# features of Mudlet, generally speaking they will not be '#define'd in
+# production builds - uncomment the
+# 'target_compile_definitions(mudlet PRIVATE DEBUG__XXX)'
+# line here to include the relevant code:
+#
+# Other DEFINES+=DEBUG_XXX expected here as a result of:
+# https://github.com/Mudlet/Mudlet/issues/6314
+#
+# * Produce a timestamped message on the OS's command line when an autosave of
+# the map file gets requested and when such a request gets actioned (or
+# rejected because the profile is being loaded):
+# target_compile_definitions(mudlet PRIVATE DEBUG_MAPAUTOSAVE)
+
 target_sources(mudlet PRIVATE "${mudlet_BINARY_DIR}/translations/translated/qm.qrc")
 
 set_target_properties(mudlet PROPERTIES

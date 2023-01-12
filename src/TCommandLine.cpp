@@ -118,6 +118,26 @@ bool TCommandLine::event(QEvent* event)
             return false;
         }
 
+        if (ke->matches(QKeySequence::Copy)){ // Copy is Ctrl+C and possibly Ctrl+Ins, F16
+            if (mpConsole->mUpperPane->mSelectedRegion != QRegion(0, 0, 0, 0)) {
+                // Only process if there is a selection active in the TConsole
+                mpConsole->mUpperPane->slot_copySelectionToClipboard();
+                ke->accept();
+                return true;
+            }
+        }
+
+        if (ke->matches(QKeySequence::Find)){ // Find is Ctrl+F
+            if (mudlet::self()->dactionInputLine->isChecked()) {
+                // If hidden then reveal as if pressed Alt-L
+                mudlet::self()->dactionInputLine->setChecked(false);
+                mudlet::self()->mpCurrentActiveHost->setCompactInputLine(false);
+            }
+            mpConsole->mpBufferSearchBox->setFocus();
+            ke->accept();
+            return true;
+        }
+
         // Shortcut for keypad keys
         if ((ke->modifiers() & Qt::KeypadModifier) && mpKeyUnit->processDataStream(static_cast<Qt::Key>(ke->key()), static_cast<Qt::KeyboardModifiers>(ke->modifiers()))) {
             ke->accept();
@@ -154,9 +174,9 @@ bool TCommandLine::event(QEvent* event)
                 int currentIndex = mudlet::self()->mpTabBar->currentIndex();
                 int count = mudlet::self()->mpTabBar->count();
                 if (currentIndex - 1 < 0) {
-                    mudlet::self()->mpTabBar->setCurrentIndex(count - 1);
+                    mudlet::self()->slot_tabChanged(count - 1);
                 } else {
-                    mudlet::self()->mpTabBar->setCurrentIndex(currentIndex - 1);
+                    mudlet::self()->slot_tabChanged(currentIndex - 1);
                 }
                 ke->accept();
                 return true;
@@ -183,9 +203,9 @@ bool TCommandLine::event(QEvent* event)
                 int currentIndex = mudlet::self()->mpTabBar->currentIndex();
                 int count = mudlet::self()->mpTabBar->count();
                 if (currentIndex + 1 < count) {
-                    mudlet::self()->mpTabBar->setCurrentIndex(currentIndex + 1);
+                    mudlet::self()->slot_tabChanged(currentIndex + 1);
                 } else {
-                    mudlet::self()->mpTabBar->setCurrentIndex(0);
+                    mudlet::self()->slot_tabChanged(0);
                 }
                 ke->accept();
                 return true;
@@ -216,7 +236,7 @@ bool TCommandLine::event(QEvent* event)
                 // Ignore state of <CTRL> and <SHIFT> keys
                 mHistoryBuffer = 0;
 
-                if (mTabCompletionTyped.size() >= 1) {
+                if (!mTabCompletionTyped.isEmpty()) {
                     mTabCompletionTyped.chop(1);
                 }
                 mTabCompletionCount = -1;
@@ -239,7 +259,7 @@ bool TCommandLine::event(QEvent* event)
             if ((ke->modifiers() & allModifiers) == Qt::NoModifier) {
                 mHistoryBuffer = 0;
 
-                if (mTabCompletionTyped.size() >= 1) {
+                if (!mTabCompletionTyped.isEmpty()) {
                     mTabCompletionTyped.chop(1);
                 } else {
                     mTabCompletionTyped.clear();
@@ -427,25 +447,6 @@ bool TCommandLine::event(QEvent* event)
                 return true;
             }
             break;
-
-        case Qt::Key_C:
-            if (((ke->modifiers() & allModifiers) == Qt::ControlModifier)
-                && (mpConsole->mUpperPane->mSelectedRegion != QRegion(0, 0, 0, 0))) {
-
-                // Only process as a Control-C if it is EXACTLY those two keys
-                // and no other AND there is a selection active in the TConsole
-                mpConsole->mUpperPane->slot_copySelectionToClipboard();
-                ke->accept();
-                return true;
-            }
-
-            if (keybindingMatched(ke)) {
-                // Process as a possible key binding if there are ANY modifiers
-                return true;
-            }
-
-            processNormalKey(event);
-            return false;
 
         case Qt::Key_1:
             if (handleCtrlTabChange(ke, 1)) {
@@ -842,17 +843,48 @@ void TCommandLine::mousePressEvent(QMouseEvent* event)
 
         mPopupPosition = event->pos();
         popup->popup(event->globalPos());
-        // The use of accept here prevents this event from reaching any parent
-        // widget - like the TConsole containing this TCommandLine...
+        // The use of accept here is supposed to prevents this event from
+        // reaching any parent widget - like the TConsole containing this
+        // TCommandLine...
         event->accept();
-        mudlet::self()->activateProfile(mpHost);
-        return;
     }
 
     // Process any other possible mousePressEvent - which is default popup
     // handling - and which accepts the event:
     QPlainTextEdit::mousePressEvent(event);
     mudlet::self()->activateProfile(mpHost);
+    if (mType & (SubCommandLine|ConsoleCommandLine)) {
+        // This is NOT the main TMainConsole so keep the focus in this
+        // TConsole/TCommandLine - but due to the way things happen we
+        // need to do it after other things have happened - by using a zero
+        // time-out timer:
+        QTimer::singleShot(0, this, [this]() {
+            if (mpConsole) {
+                mpConsole->setFocusOnAppropriateConsole();
+                this->setFocus(Qt::OtherFocusReason);
+            }
+        });
+    }
+}
+
+void TCommandLine::mouseReleaseEvent(QMouseEvent* event)
+{
+    // Process any other possible mousePressEvent - which is default popup
+    // handling - and which accepts the event:
+    QPlainTextEdit::mousePressEvent(event);
+    mudlet::self()->activateProfile(mpHost);
+    if (mType & (SubCommandLine|ConsoleCommandLine)) {
+        // This is NOT the main TMainConsole so keep the focus in this
+        // TConsole/TCommandLine - but due to the way things happen we
+        // need to do it after other things have happened - by using a zero
+        // time-out timer:
+        QTimer::singleShot(0, this, [this]() {
+            if (mpConsole) {
+                mpConsole->setFocusOnAppropriateConsole();
+                this->setFocus(Qt::OtherFocusReason);
+            }
+        });
+    }
 }
 
 void TCommandLine::enterCommand(QKeyEvent* event)
@@ -922,7 +954,7 @@ void TCommandLine::handleTabCompletion(bool direction)
 {
     if ((mTabCompletionCount < 0) || (mUserKeptOnTyping)) {
         mTabCompletionTyped = toPlainText();
-        if (mTabCompletionTyped.size() == 0) {
+        if (mTabCompletionTyped.isEmpty()) {
             return;
         }
         mUserKeptOnTyping = false;
@@ -1041,7 +1073,7 @@ void TCommandLine::historyMove(MoveDirection direction)
         return;
     }
     int shift = (direction == MOVE_UP ? 1 : -1);
-    if ((textCursor().selectedText().size() == toPlainText().size()) || (toPlainText().size() == 0) || !mpHost->mHighlightHistory) {
+    if ((textCursor().selectedText().size() == toPlainText().size()) || (toPlainText().isEmpty()) || !mpHost->mHighlightHistory) {
         mHistoryBuffer += shift;
         if (mHistoryBuffer >= mHistoryList.size()) {
             mHistoryBuffer = mHistoryList.size() - 1;
@@ -1149,7 +1181,7 @@ bool TCommandLine::handleCtrlTabChange(QKeyEvent* ke, int tabNumber)
         }
 
         if (mudlet::self()->mpTabBar->count() >= (tabNumber)) {
-            mudlet::self()->mpTabBar->setCurrentIndex(tabNumber - 1);
+            mudlet::self()->slot_tabChanged(tabNumber - 1);
             ke->accept();
             return true;
         }
