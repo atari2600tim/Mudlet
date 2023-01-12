@@ -1,6 +1,6 @@
 describe("Tests the GUI utilities as far as possible without mudlet", function()
 
-  describe("Test the operation of the ansi2decho function", function()
+  describe("Tests the functionality of ansi2decho", function()
 
     it("Should have loaded the function successfully", function()
       assert.truthy(ansi2decho)
@@ -93,6 +93,24 @@ describe("Tests the GUI utilities as far as possible without mudlet", function()
       assert.equals(expected, actual)
     end)
 
+    it("Should handle overline", function()
+      local sample = "\27[53moverline\27[55m"
+      local expected = "<o>overline</o>"
+      local actual = ansi2decho(sample)
+      assert.equals(expected, actual)
+    end)
+
+    it("Should handle bold, before or after colours", function()
+      local sequences = {
+        {"\27[31m\27[1m", "<128,0,0><255,0,0>"},
+        {"\27[1m\27[31m", "<255,0,0>"},
+      }
+      for _, seq in ipairs(sequences) do
+          local actualResult = ansi2decho(seq[1])
+          assert.are.same(seq[2], actualResult)
+      end
+    end)
+
     it("Should leave normal text and other escape sequences alone", function()
       local sequences = {
         {"Hello World", "Hello World"},
@@ -136,7 +154,8 @@ describe("Tests the GUI utilities as far as possible without mudlet", function()
       local sequences = {
         {"\27[4z<PROMPT>\27[0;32;40m4876h, \27[0;1;33;40m3539m, \27[0;1;31;40m22200e, \27[0;1;32;40m21648w \27[0;37;40mcexkdb-\27[4z</PROMPT>", "\27[4z<PROMPT><r><0,128,0:0,0,0>4876h, <r><255,255,0:0,0,0>3539m, <r><255,0,0:0,0,0>22200e, <r><0,255,0:0,0,0>21648w <r><192,192,192:0,0,0>cexkdb-\27[4z</PROMPT>"},
         {'\27[0;1;36;40mYou say in a baritone voice, "Test."\27[0;37;40m', '<r><0,255,255:0,0,0>You say in a baritone voice, "Test."<r><192,192,192:0,0,0>'},
-        {'\27[38;5;179;48;5;230mYou say in a baritone voice, "Test."\27[0;37;40m', '<215,175,95:255,255,215>You say in a baritone voice, "Test."<r><192,192,192:0,0,0>'}
+        {'\27[38;5;179;48;5;230mYou say in a baritone voice, "Test."\27[0;37;40m', '<215,175,95:255,255,215>You say in a baritone voice, "Test."<r><192,192,192:0,0,0>'},
+        {'* \27[35m(a338f71)\27[m - \27[33m[Update release.yml]\27[m  \27[1;34m<TheLastDarkthorne>\27[m', '* <128,0,128>(a338f71)<r> - <128,128,0>[Update release.yml]<r>  <0,0,255><TheLastDarkthorne><r>'}
       }
       for _, seq in ipairs(sequences) do
         local actualResult = ansi2decho(seq[1])
@@ -146,7 +165,7 @@ describe("Tests the GUI utilities as far as possible without mudlet", function()
 
   end)
 
-  describe("Tests the functionality of decho2ansi()", function()
+  describe("Tests the functionality of decho2ansi", function()
     local simple_original = "<128,0,0>This is in red<r> And then reset."
     local simple_expected = "\27[38:2::128:0:0mThis is in red\27[0m And then reset."
 
@@ -183,9 +202,15 @@ describe("Tests the GUI utilities as far as possible without mudlet", function()
       local actual = decho2ansi("<s>strikeout</s>")
       assert.equals(expected, actual)
     end)
+
+    it("should handle overline", function()
+      local expected = "\27[53moverline\27[55m"
+      local actual = decho2ansi("<o>overline</o>")
+      assert.equals(expected, actual)
+    end)
   end)
 
-  describe("Tests the functionality of hecho2ansi()", function()
+  describe("Tests the functionality of hecho2ansi", function()
     local simple_original = "#800000This is in red#r And then reset."
     local simple_expected = "\27[38:2::128:0:0mThis is in red\27[0m And then reset."
 
@@ -217,9 +242,15 @@ describe("Tests the GUI utilities as far as possible without mudlet", function()
       local actual = hecho2ansi("#sstrikeout#/s")
       assert.equals(expected, actual)
     end)
+
+    it("should handle overline", function()
+      local expected = "\27[53moverline\27[55m"
+      local actual = hecho2ansi("#ooverline#/o")
+      assert.equals(expected, actual)
+    end)
   end)
 
-  describe("Tests the functionality of cecho2ansi()", function()
+  describe("Tests the functionality of cecho2ansi", function()
     local simple_original = "<red>This is in red<r> And then reset."
     local simple_expected = "\27[38:5:1mThis is in red\27[0m And then reset."
 
@@ -256,9 +287,15 @@ describe("Tests the GUI utilities as far as possible without mudlet", function()
       local actual = cecho2ansi("<s>strikeout</s>")
       assert.equals(expected, actual)
     end)
+
+    it("should handle overline", function()
+      local expected = "\27[53moverline\27[55m"
+      local actual = cecho2ansi("<o>overline</o>")
+      assert.equals(expected, actual)
+    end)
   end)
 
-  describe("Tests the functionality of ansi2string()", function()
+  describe("Tests the functionality of ansi2string", function()
     it("should return the string fed into it with ansi codes removed", function()
       local original = '\27[38;5;179;48;5;230mYou say in a baritone voice, "Test."\27[0;37;40m'
       local expected = 'You say in a baritone voice, "Test."'
@@ -267,7 +304,7 @@ describe("Tests the GUI utilities as far as possible without mudlet", function()
     end)
   end)
 
-  describe("Tests the functionality of setHexFgColor()", function()
+  describe("Tests the functionality of setHexFgColor", function()
 
     it("Should convert hex string correctly", function()
       local hexStrings = {
@@ -289,7 +326,7 @@ describe("Tests the GUI utilities as far as possible without mudlet", function()
 
   end)
 
-  describe("Tests the functionality of setHexBgColor()", function()
+  describe("Tests the functionality of setHexBgColor", function()
 
     it("Should convert hex string correctly", function()
       local hexStrings = {
@@ -398,7 +435,7 @@ describe("Tests the GUI utilities as far as possible without mudlet", function()
     end)
   end)
 
-  describe("Tests the functionality of _Echoes.Process()", function()
+  describe("Tests the functionality of _Echoes.Process", function()
     it("Should parse hex patterns correctly", function()
       assert.are.same(
         _Echos.Process('#ff0000Red', 'Hex'),
@@ -428,6 +465,11 @@ describe("Tests the GUI utilities as far as possible without mudlet", function()
       assert.are.same(
         _Echos.Process('#sStrikethrough#/s', 'Hex'),
         { "", "\27strikethrough", "Strikethrough", "\27strikethroughoff", "" }
+      )
+
+      assert.are.same(
+        _Echos.Process('#oOverline#/o', 'Hex'),
+        { "", "\27overline", "Overline", "\27overlineoff", "" }
       )
     end)
 
@@ -461,6 +503,11 @@ describe("Tests the GUI utilities as far as possible without mudlet", function()
         _Echos.Process('<s>Strikethrough</s>', 'Decimal'),
         { "", "\27strikethrough", "Strikethrough", "\27strikethroughoff", "" }
       )
+
+      assert.are.same(
+        _Echos.Process('<o>Overline</o>', 'Decimal'),
+        { "", "\27overline", "Overline", "\27overlineoff", "" }
+      )
     end)
 
     it("Should parse color patterns correctly", function()
@@ -493,6 +540,308 @@ describe("Tests the GUI utilities as far as possible without mudlet", function()
         _Echos.Process('<s>Strikethrough</s>', 'Color'),
         { "", "\27strikethrough", "Strikethrough", "\27strikethroughoff", "" }
       )
+
+      assert.are.same(
+        _Echos.Process('<o>Overline</o>', 'Color'),
+        { "", "\27overline", "Overline", "\27overlineoff", "" }
+      )
+    end)
+  end)
+
+  describe("Tests the functionality of cecho2string", function()
+    it("Should be able to handle stripping colors", function()
+      local testCases = {
+        {"<red>This is<blue> a simple test", "This is a simple test"},
+        {"<purple>This<reset> is a <more> complicated test", "This is a <more> complicated test"},
+        {"This <ansiBlack>should also be easy", "This should also be easy"}
+      }
+      for _, case in ipairs(testCases) do
+        local expected = case[2]
+        local actual = cecho2string(case[1])
+        assert.equals(expected, actual)
+      end
+    end)
+
+    it("Should be able to strip formatting codes as well", function()
+      local testCases = {
+        {"<b>Bold</b>", "Bold"},
+        {"<u>Underline</u>", "Underline"},
+        {"<i>Italics</i>", "Italics"},
+        {"<s>Strikethrough</s>", "Strikethrough"},
+        {"<o>Overline</o>", "Overline"}
+      }
+      for _, case in ipairs(testCases) do
+        local expected = case[2]
+        local actual = cecho2string(case[1])
+        assert.equals(expected, actual)
+      end
+    end)
+  end)
+
+  describe("Tests the functionality of decho2string", function()
+    it("Should be able to handle stripping colors", function()
+      local testCases = {
+        {"<255,0,0>This is<0,255,0> a simple test", "This is a simple test"},
+        {"<128,128,0>This<r> is a <more> complicated test", "This is a <more> complicated test"},
+        {"This <0,0,0>should also be easy", "This should also be easy"}
+      }
+      for _, case in ipairs(testCases) do
+        local expected = case[2]
+        local actual = decho2string(case[1])
+        assert.equals(expected, actual)
+      end
+    end)
+
+    it("Should be able to strip formatting codes as well", function()
+      local testCases = {
+        {"<b>Bold</b>", "Bold"},
+        {"<u>Underline</u>", "Underline"},
+        {"<i>Italics</i>", "Italics"},
+        {"<s>Strikethrough</s>", "Strikethrough"},
+        {"<o>Overline</o>", "Overline"}
+      }
+      for _, case in ipairs(testCases) do
+        local expected = case[2]
+        local actual = decho2string(case[1])
+        assert.equals(expected, actual)
+      end
+    end)
+  end)
+
+  describe("Tests the functionality of hecho2string", function()
+    it("Should be able to handle stripping colors", function()
+      local testCases = {
+        {"#ff0000This is#00ff00 a simple test", "This is a simple test"},
+        {"#777700This#r is a #more complicated test", "This is a #more complicated test"},
+        {"This |c000000should also be easy", "This should also be easy"}
+      }
+      for _, case in ipairs(testCases) do
+        local expected = case[2]
+        local actual = hecho2string(case[1])
+        assert.equals(expected, actual)
+      end
+    end)
+
+    it("Should be able to strip formatting codes as well", function()
+      local testCases = {
+        {"#bBold#/b", "Bold"},
+        {"#uUnderline#/u", "Underline"},
+        {"#iItalics#/i", "Italics"},
+        {"#sStrikethrough#/s", "Strikethrough"},
+        {"#oOverline#/o", "Overline"}
+      }
+      for _, case in ipairs(testCases) do
+        local expected = case[2]
+        local actual = hecho2string(case[1])
+        assert.equals(expected, actual)
+      end
+    end)
+  end)
+
+  describe("Tests the functionality of getHTMLformat", function()
+    local fmt
+    before_each(function()
+      fmt = {
+        background = "rgba(0, 0, 0, 0)",
+        bold = false,
+        foreground = { 0, 160, 0 },
+        italic = false,
+        overline = false,
+        reverse = false,
+        strikeout = false,
+        underline = false
+      }
+    end)
+
+    it("Should return a style with no text modifiers but bg/fg colors if none are in the table", function()
+      local expected = '<span style="color: rgb(0, 160, 0);background-color: rgba(0, 0, 0, 0); font-weight: normal; font-style: normal; text-decoration: none;">'
+      local actual = getHTMLformat(fmt)
+      assert.equals(expected, actual)
+    end)
+
+    it("Should return a style with 'font-weight: bold;' if bold is true", function()
+      local expected = '<span style="color: rgb(0, 160, 0);background-color: rgba(0, 0, 0, 0); font-weight: bold; font-style: normal; text-decoration: none;">'
+      fmt.bold = true
+      local actual = getHTMLformat(fmt)
+      assert.equals(expected, actual)
+    end)
+
+    it("Should return a style with 'font-style: italic' if italic is true", function()
+      local expected = '<span style="color: rgb(0, 160, 0);background-color: rgba(0, 0, 0, 0); font-weight: normal; font-style: italic; text-decoration: none;">'
+      fmt.italic = true
+      local actual = getHTMLformat(fmt)
+      assert.equals(expected, actual)
+    end)
+
+    it("Should return a style with 'text-decoration: underline' if underline is true", function()
+      local expected = '<span style="color: rgb(0, 160, 0);background-color: rgba(0, 0, 0, 0); font-weight: normal; font-style: normal; text-decoration: underline;">'
+      fmt.underline = true
+      local actual = getHTMLformat(fmt)
+      assert.equals(expected, actual)
+    end)
+
+    it("Should return a style with 'text-decoration: overline' if overline is true", function()
+      local expected = '<span style="color: rgb(0, 160, 0);background-color: rgba(0, 0, 0, 0); font-weight: normal; font-style: normal; text-decoration: overline;">'
+      fmt.overline = true
+      local actual = getHTMLformat(fmt)
+      assert.equals(expected, actual)
+    end)
+
+    it("Should return a style with 'text-decoration: line-through' if strikeout is true", function()
+      local expected = '<span style="color: rgb(0, 160, 0);background-color: rgba(0, 0, 0, 0); font-weight: normal; font-style: normal; text-decoration: line-through;">'
+      fmt.strikeout = true
+      local actual = getHTMLformat(fmt)
+      assert.equals(expected, actual)
+    end)
+
+    it("Should return a style with no text modifiers and bg/fg colors inverted if reverse is true", function()
+      local expected = '<span style="color: rgb(0, 0, 0);background-color: rgba(0, 160, 0, 255); font-weight: normal; font-style: normal; text-decoration: none;">'
+      fmt.reverse = true
+      local actual = getHTMLformat(fmt)
+      assert.equals(expected, actual)
+    end)
+
+    it("Should be able to handle all options at once", function()
+      local expected = '<span style="color: rgb(0, 0, 0);background-color: rgba(0, 160, 0, 255); font-weight: bold; font-style: italic; text-decoration: overline underline line-through;">'
+      fmt = {
+        background = { 0, 0, 0 },
+        bold = true,
+        foreground = { 0, 160, 0 },
+        italic = true,
+        overline = true,
+        reverse = true,
+        strikeout = true,
+        underline = true
+      }
+      local actual = getHTMLformat(fmt)
+      assert.equals(expected, actual)
+    end)
+
+    it("Should use the foreground for the background and invert that if the background is a gradient", function()
+      local expected = '<span style="color: rgb(255, 95, 255);background-color: rgba(0, 160, 0, 255); font-weight: normal; font-style: normal; text-decoration: none;">'
+      fmt.background = "QLinearGradient(doesn't matter will be ignored)"
+      fmt.reverse = true
+      local actual = getHTMLformat(fmt)
+      assert.equals(expected, actual)
+    end)
+
+    it("Should extract r,g,b from rgba() backgrounds if reverse is true (rgba doesn't work in color)", function()
+      local expected = '<span style="color: rgb(128, 0, 128);background-color: rgba(0, 160, 0, 255); font-weight: normal; font-style: normal; text-decoration: none;">'
+      fmt.background = "rgba(128, 0, 128, 255)"
+      fmt.reverse = true
+      local actual = getHTMLformat(fmt)
+      assert.equals(expected, actual)
+      fmt.background = "rgba(128, 0, 128, 128)"
+      local actual = getHTMLformat(fmt)
+      assert.equals(expected, actual)
+    end)
+  end)
+
+  describe("Tests the functionality of getLabelFormat", function()
+    local expected
+    local labelName = "gldfTestLabel"
+    before_each(function()
+      expected = {
+        background = "rgba(0, 0, 0, 0)",
+        bold = false,
+        foreground = { 192, 192, 192 },
+        italic = false,
+        overline = false,
+        reverse = false,
+        strikeout = false,
+        underline = false
+      }
+      createLabel(labelName, 0, 0, 0, 0, 0)
+      hideWindow(labelName)
+    end)
+
+    after_each(function()
+      deleteLabel(labelName)
+    end)
+
+    it("Should return a default table if no background color or stylesheet is set", function()
+      local actual = getLabelFormat(labelName)
+      assert.are.same(expected, actual)
+    end)
+
+    it("Should return the transparent background color for default so the background of the label is seen", function()
+      setBackgroundColor(labelName, 128, 0, 128)
+      local actual = getLabelFormat(labelName)
+      assert.are.same(expected, actual)
+    end)
+
+    it("Should detect foreground color from a color directive", function()
+      setLabelStyleSheet(labelName, "color: rgb(128, 0, 128);")
+      expected.foreground = "rgb(128, 0, 128)"
+      local actual = getLabelFormat(labelName)
+      assert.are.same(expected, actual)
+    end)
+
+    it("Should detect underline from text-decorations directive", function()
+      setLabelStyleSheet(labelName, "text-decoration: underline;")
+      expected.underline = true
+      local actual = getLabelFormat(labelName)
+      assert.are.same(expected, actual)
+    end)
+
+    it("Should detect overline from text-decorations directive", function()
+      setLabelStyleSheet(labelName, "text-decoration: overline;")
+      expected.overline = true
+      local actual = getLabelFormat(labelName)
+      assert.are.same(expected, actual)
+    end)
+
+    it("Should detect strikeout/line-through/strikethrough from text-decorations directive", function()
+      setLabelStyleSheet(labelName, "text-decoration: line-through;")
+      expected.strikeout = true
+      local actual = getLabelFormat(labelName)
+      assert.are.same(expected, actual)
+    end)
+
+    it("Should detect underline, overline, and strikeout if all are present", function()
+      setLabelStyleSheet(labelName, "text-decoration: underline overline line-through;")
+      expected.underline = true
+      expected.overline = true
+      expected.strikeout = true
+      local actual = getLabelFormat(labelName)
+      assert.are.same(expected, actual)
+    end)
+
+    it("Should detect italic from font or font-style tag", function()
+      setLabelStyleSheet(labelName, "font-style: italic;")
+      expected.italic = true
+      local actual = getLabelFormat(labelName)
+      assert.are.same(expected, actual)
+      setLabelStyleSheet(labelName, "font: italic;")
+      local actual = getLabelFormat(labelName)
+      assert.are.same(expected, actual)
+    end)
+
+    it("Should detect bold from font or font-weight tag", function()
+      setLabelStyleSheet(labelName, "font: bold;")
+      expected.bold = true
+      local actual = getLabelFormat(labelName)
+      assert.are.same(expected, actual)
+      setLabelStyleSheet(labelName, "font-weight: bold;")
+      local actual = getLabelFormat(labelName)
+      assert.are.same(expected, actual)
+    end)
+
+    it("Should detect bold and italic from the font tag at the same time", function()
+      setLabelStyleSheet(labelName, "font: bold italic;")
+      expected.bold = true
+      expected.italic = true
+      local actual = getLabelFormat(labelName)
+      assert.are.same(expected, actual)
+    end)
+  end)
+
+  describe("Tests the functionality of replace", function()
+    it("Should return nil+msg if nothing is selected to replace", function()
+      deselect()
+      local ok,err = replace("]")
+      assert.is_nil(ok)
+      assert.equals("replace: nothing is selected to be replaced. Did selectString return -1?", err)
     end)
   end)
 end)
