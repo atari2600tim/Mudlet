@@ -25,7 +25,7 @@ Geyser.Gauge = Geyser.Container:new({
   orientation = "horizontal" })
 
 --- Sets the gauge amount.
--- @param currentValue Current numeric value, or if maxValue is ommitted, then
+-- @param currentValue Current numeric value, or if maxValue is omitted, then
 --        it is assumed that currentValue is a value between 0 and 100 and is
 --        used to set the gauge.
 -- @param maxValue Maximum numeric value.  Optionally nil, see above.
@@ -142,7 +142,7 @@ function Geyser.Gauge:setAlignment(alignment)
 end
 
 --- Sets the color of the text on the gauge
--- @param color the color you want the text to be
+-- @param color the color you want the text to be. Can use color names such as "red", decho codes such as "<255,0,0>" and hex codes such as "#ff0000"
 function Geyser.Gauge:setFgColor(color)
   self.text:setFgColor(color)
 end
@@ -155,7 +155,7 @@ function Geyser.Gauge:echo(message, color, format)
   self.formatTable = self.text.formatTable
 end
 
--- Sets the style sheet for the gauge
+--- Sets the style sheet for the gauge
 -- @param css Style sheet for the front label
 -- @param cssback Style sheet for the back label
 -- @param cssText Style sheet for the text label

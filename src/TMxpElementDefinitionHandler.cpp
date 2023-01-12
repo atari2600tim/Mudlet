@@ -46,11 +46,7 @@ TMxpTagHandlerResult TMxpElementDefinitionHandler::handleStartTag(TMxpContext& c
     }
 
     if (tag->hasAttribute("ATT")) {
-#if (QT_VERSION) >= (QT_VERSION_CHECK(5, 14, 0))
         el.attrs = tag->getAttributeValue("ATT").toLower().split(' ', Qt::SkipEmptyParts);
-#else
-        el.attrs = tag->getAttributeValue("ATT").toLower().split(' ', QString::SkipEmptyParts);
-#endif
     }
 
     if (tag->hasAttribute("TAG")) {
@@ -65,8 +61,7 @@ TMxpTagHandlerResult TMxpElementDefinitionHandler::handleStartTag(TMxpContext& c
     el.empty = tag->hasAttribute("EMPTY");
 
     if (!el.definition.isEmpty()) {
-        TMxpTagParser parser;
-        el.parsedDefinition = parser.parseToMxpNodeList(el.definition);
+        el.parsedDefinition = TMxpTagParser::parseToMxpNodeList(el.definition);
     }
 
     ctx.getElementRegistry().registerElement(el);

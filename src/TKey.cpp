@@ -1,7 +1,8 @@
 /***************************************************************************
  *   Copyright (C) 2008-2013 by Heiko Koehn - KoehnHeiko@googlemail.com    *
  *   Copyright (C) 2014 by Ahmed Charles - acharles@outlook.com            *
- *   Copyright (C) 2018, 2020 by Stephen Lyons - slysven@virginmedia.com   *
+ *   Copyright (C) 2018, 2020-2022 by Stephen Lyons                        *
+ *                                               - slysven@virginmedia.com *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -29,28 +30,14 @@
 
 TKey::TKey(TKey* parent, Host* pHost)
 : Tree<TKey>( parent )
-, exportItem(true)
-, mModuleMasterFolder(false)
-, mRegisteredAnonymousLuaFunction(false)
-, mKeyCode()
-, mKeyModifier()
-, mpHost( pHost )
-, mNeedsToBeCompiled( true )
-, mModuleMember(false)
+, mpHost(pHost)
 {
 }
 
 TKey::TKey(QString name, Host* pHost)
 : Tree<TKey>( nullptr )
-, exportItem( true )
-, mModuleMasterFolder( false )
-, mRegisteredAnonymousLuaFunction(false)
-, mName( name )
-, mKeyCode()
-, mKeyModifier()
-, mpHost( pHost )
-, mNeedsToBeCompiled( true )
-, mModuleMember(false)
+, mName(name)
+, mpHost(pHost)
 {
 }
 
@@ -143,8 +130,8 @@ void TKey::compileAll()
 {
     mNeedsToBeCompiled = true;
     if (!compileScript()) {
-        if (mudlet::debugMode) {
-            TDebug(Qt::white, Qt::red) << "ERROR: Lua compile error. compiling script of key binding:" << mName << "\n" >> 0;
+        if (mudlet::smDebugMode) {
+            TDebug(Qt::white, Qt::red) << "ERROR: Lua compile error. compiling script of key binding:" << mName << "\n" >> mpHost;
         }
         mOK_code = false;
     }
@@ -157,8 +144,8 @@ void TKey::compile()
 {
     if (mNeedsToBeCompiled) {
         if (!compileScript()) {
-            if (mudlet::debugMode) {
-                TDebug(Qt::white, Qt::red) << "ERROR: Lua compile error. compiling script of key binding:" << mName << "\n" >> 0;
+            if (mudlet::smDebugMode) {
+                TDebug(Qt::white, Qt::red) << "ERROR: Lua compile error. compiling script of key binding:" << mName << "\n" >> mpHost;
             }
             mOK_code = false;
         }
@@ -194,7 +181,7 @@ bool TKey::compileScript()
 
 void TKey::execute()
 {
-    if (mCommand.size() > 0) {
+    if (!mCommand.isEmpty()) {
         mpHost->send(mCommand);
     }
     if (mNeedsToBeCompiled) {

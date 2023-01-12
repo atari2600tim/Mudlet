@@ -1,5 +1,6 @@
 /***************************************************************************
  *   Copyright (C) 2020 by Gustavo Sousa - gustavocms@gmail.com            *
+ *   Copyright (C) 2022 by Stephen Lyons - slysven@virginmedia.com         *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -18,16 +19,39 @@
  ***************************************************************************/
 
 #include "TLinkStore.h"
+#if not defined(LinkStore_Test)
+#include "Host.h"
+#endif
 
-int TLinkStore::addLinks(const QStringList& links, const QStringList& hints)
+int TLinkStore::addLinks(const QStringList& links, const QStringList& hints, Host* pH, const QVector<int>& luaReference)
 {
-    if (++mLinkID > maxLinks) {
+    if (++mLinkID > mMaxLinks) {
         mLinkID = 1;
     }
+
+    // Used to unref lua objects in the registry to avoid memory leaks
+    freeReference(pH, mReferenceStore.value(mLinkID, QVector<int>()));
+
     mLinkStore[mLinkID] = links;
     mHintStore[mLinkID] = hints;
+    mReferenceStore[mLinkID] = luaReference;
 
     return mLinkID;
+}
+
+void TLinkStore::freeReference(Host* pH, const QVector<int>& oldReference)
+{
+    if (!pH || oldReference.isEmpty()) {
+        return;
+    }
+
+    for (int i = 0, total = oldReference.size(); i < total; ++i) {
+        if (oldReference.value(i, 0)) {
+            #if not defined(LinkStore_Test)
+            pH->mLuaInterpreter.freeLuaRegistryIndex(oldReference.at(i));
+            #endif
+        }
+    }
 }
 
 QStringList TLinkStore::getCurrentLinks() const
@@ -48,6 +72,11 @@ QStringList& TLinkStore::getLinks(int id)
 QStringList& TLinkStore::getHints(int id)
 {
     return mHintStore[id];
+}
+
+QVector<int> TLinkStore::getReference(int id) const
+{
+    return mReferenceStore.value(id);
 }
 
 QStringList TLinkStore::getLinksConst(int id) const

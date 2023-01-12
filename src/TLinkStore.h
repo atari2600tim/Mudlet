@@ -3,6 +3,7 @@
 
 /***************************************************************************
  *   Copyright (C) 2020 by Gustavo Sousa - gustavocms@gmail.com            *
+ *   Copyright (C) 2022 by Stephen Lyons - slysven@virginmedia.com         *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -23,34 +24,45 @@
 #include "pre_guard.h"
 #include <QMap>
 #include <QStringList>
+#include <QVector>
 #include "post_guard.h"
+
+class Host;
 
 // Keep together lists of links and hints associated
 class TLinkStore {
-    inline static const int scmMaxLinks = 2000;
-
-    QMap<int, QStringList> mLinkStore;
-    QMap<int, QStringList> mHintStore;
-
-    int mLinkID;
-    int maxLinks;
+    inline static const int scmMaxLinks = 20000;
 
 public:
-    TLinkStore() : TLinkStore(scmMaxLinks) {}
+    // We don't use explicit for this one so that the default argument is used,
+    // if a value is not provided:
+    TLinkStore(int maxLinks = scmMaxLinks)
+    : mMaxLinks(maxLinks)
+    {}
 
-    explicit TLinkStore(int maxLinks) : mLinkID(0), maxLinks(maxLinks) {}
-
-    int addLinks(const QStringList& links, const QStringList& hints);
+    int addLinks(const QStringList& links, const QStringList& hints, Host* pH = nullptr, const QVector<int>& luaReference = QVector<int>());
 
     QStringList& getLinks(int id);
     QStringList& getHints(int id);
     QStringList getLinksConst(int id) const;
     QStringList getHintsConst(int id) const;
+    QVector<int> getReference(int id) const;
 
     int getCurrentLinkID() const;
 
     QStringList getCurrentLinks() const;
     void setCurrentLinks(const QStringList& links);
+
+private:
+    void freeReference(Host* pH, const QVector<int>& luaReference);
+
+
+    int mLinkID = 0;
+    int mMaxLinks = scmMaxLinks;
+
+    QMap<int, QStringList> mLinkStore;
+    QMap<int, QStringList> mHintStore;
+    QMap<int, QVector<int>> mReferenceStore;
 };
 
 #endif //MUDLET_TLINKSTORE_H

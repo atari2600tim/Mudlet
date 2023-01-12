@@ -72,8 +72,12 @@
     "description": "Success message after drag&drop of package file onto Mudlet - %s is the file name"
   },
   "Mudlet.packageInstallFail": {
-    "message": "Installation von Paket '%s' fehlgeschlagen.",
+    "message": "Die Installation von '%s' ist fehlgeschlagen: %s",
     "description": "Failure message after drag&drop of package file onto Mudlet - %s is the file name"
+  },
+  "Mudlet.packageDownloading": {
+    "message": "Lade Paket herunter von %s.",
+    "description": "Download package from Url for installation - %s is source url"
   },
   "Mudlet.prefixOk": {
     "message": "[  OK  ]  - ",
@@ -82,5 +86,9 @@
   "Mudlet.prefixWarn": {
     "message": "[ WARN ]  - ",
     "description": "Start of the line for messages warning the player about something. Keep at 12 characters length for nice alignment!"
+  },
+  "Mudlet.prefixInfo": {
+    "message": "[ INFO ]  - ",
+    "description": "Start of the line for messages informing the player about something. Keep at 12 characters length for nice alignment!"
   }
 }

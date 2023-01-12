@@ -1,7 +1,7 @@
 /***************************************************************************
  *   Copyright (C) 2008-2013 by Heiko Koehn - KoehnHeiko@googlemail.com    *
  *   Copyright (C) 2014 by Ahmed Charles - acharles@outlook.com            *
- *   Copyright (C) 2014-2018, 2020 by Stephen Lyons                        *
+ *   Copyright (C) 2014-2018, 2020, 2022 by Stephen Lyons                        *
  *                                               - slysven@virginmedia.com *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -24,7 +24,7 @@
 #include "TBuffer.h"
 
 #include "mudlet.h"
-#include "TConsole.h"
+#include "TEvent.h"
 #include "TStringUtils.h"
 
 #include "pre_guard.h"
@@ -56,23 +56,15 @@ TChar::TChar(const QColor& fg, const QColor& bg, const TChar::AttributeFlags fla
 : mFgColor(fg)
 , mBgColor(bg)
 , mFlags(flags)
-, mIsSelected(false)
 , mLinkIndex(linkIndex)
 {
 }
 
-TChar::TChar(Host* pH)
-: mFlags(None)
-, mIsSelected(false)
-, mLinkIndex(0)
+TChar::TChar(TConsole* pC)
+: mFgColor(pC ? pC->mFormatCurrent.foreground() : QColorConstants::White)
+, mBgColor(pC ? pC->mFormatCurrent.background() : QColorConstants::Black)
+, mFlags(pC ? pC->mFormatCurrent.allDisplayAttributes() : AttributeFlag::None)
 {
-    if (pH) {
-        mFgColor = pH->mFgColor;
-        mBgColor = pH->mBgColor;
-    } else {
-        mFgColor = Qt::white;
-        mBgColor = Qt::black;
-    }
 }
 
 // Note: this operator compares ALL aspects of 'this' against 'other' which may
@@ -108,20 +100,13 @@ TChar::TChar(const TChar& copy)
 {
 }
 
-const QString timeStampFormat = QStringLiteral("hh:mm:ss.zzz ");
-const QString blankTimeStamp  = QStringLiteral("------------ ");
+const QString timeStampFormat = qsl("hh:mm:ss.zzz ");
+const QString blankTimeStamp  = qsl("------------ ");
 
-TBuffer::TBuffer(Host* pH)
-: mLinesLimit(10000)
-, mBatchDeleteSize(1000)
-, mWrapAt(99999999)
-, mWrapIndent(0)
-, mCursorY(0)
-, mEchoingText(false)
-, mGotESC(false)
-, mGotCSI(false)
-, mGotOSC(false)
-, mIsDefaultColor(true)
+// Store for text and attributes (such as character color) to be drawn on screen 
+// Contents are rendered by a TTextEdit
+TBuffer::TBuffer(Host* pH, TConsole* pConsole)
+: mpConsole(pConsole)
 , mBlack(pH->mBlack)
 , mLightBlack(pH->mLightBlack)
 , mRed(pH->mRed)
@@ -142,17 +127,6 @@ TBuffer::TBuffer(Host* pH)
 , mForeGroundColorLight(pH->mFgColor)
 , mBackGroundColor(pH->mBgColor)
 , mpHost(pH)
-, mBold(false)
-, mItalics(false)
-, mOverline(false)
-, mReverse(false)
-, mStrikeOut(false)
-, mUnderline(false)
-, mItalicBeforeBlink(false)
-, lastLoggedFromLine(0)
-, lastloggedToLine(0)
-, mEncoding()
-, mMainIncomingCodec(nullptr)
 {
     clear();
 
@@ -261,9 +235,9 @@ int TBuffer::getLastLineNumber()
     }
 }
 
-void TBuffer::addLink(bool trigMode, const QString& text, QStringList& command, QStringList& hint, TChar format)
+void TBuffer::addLink(bool trigMode, const QString& text, QStringList& command, QStringList& hint, TChar format, QVector<int> luaReference)
 {
-    int id = mLinkStore.addLinks(command, hint);
+    int id = mLinkStore.addLinks(command, hint, mpHost, luaReference);
 
     if (!trigMode) {
         append(text, 0, text.length(), format.mFgColor, format.mBgColor, format.mFlags, id);
@@ -353,15 +327,15 @@ void TBuffer::translateToPlainText(std::string& incoming, const bool isFromServe
 {
     // What can appear in a CSI Parameter String (Ps) byte or at least for it
     // to be something we can handle:
-    const QByteArray cParameter("0123456789;:");
+    const QByteArray cParameter = QByteArrayLiteral("0123456789;:");
     // What can appear in the initial position of a CSI Parameter String (Ps) byte:
-    const QByteArray cParameterInitial("0123456789;:<=>?");
+    const QByteArray cParameterInitial = QByteArrayLiteral("0123456789;:<=>?");
     // What can appear in a CSI Intermediate byte (includes a quote character in
     // the middle of the text here which has to be escaped with a backslash):
-    const QByteArray cIntermediate(" !\"#$%&'()*+,-./");
+    const QByteArray cIntermediate = QByteArrayLiteral(" !\"#$%&'()*+,-./");
     // What can appear in a CSI final byte position - (includes a backslash
     // which has to be doubled to include it in here):
-    const QByteArray cFinal("@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~");
+    const QByteArray cFinal = QByteArrayLiteral("@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~");
 
     // As well as enabling the prepending of left-over bytes from last packet
     // from the MUD server this may help in high frequency interactions to
@@ -592,7 +566,7 @@ void TBuffer::translateToPlainText(std::string& incoming, const bool isFromServe
                     /*
                      * Also seen in output from mud.durismud.com see 'C' case above:
                      * Is ED 'Erase Display' command and has three variants:
-                     * * 0 (or ommitted): clear from cursor to end of screen
+                     * * 0 (or omitted): clear from cursor to end of screen
                      *   - which is a NOP for us!
                      * * 1: clear from cursor to beginning of screen
                      *   - which is a NWIH for us!
@@ -708,13 +682,36 @@ COMMIT_LINE:
             // line there should not be any changes to text before a line feed
             // which sort of seems to be implied by the current value of ch:
 
+            // Qt struggles to report blank lines on Windows to screen readers, this is a workaround
+            // https://bugreports.qt.io/browse/QTBUG-105035
+            if (Q_UNLIKELY(mMudLine.isEmpty())) {
+                if (mpHost->mBlankLineBehaviour == Host::BlankLineBehaviour::Hide) {
+                    localBufferPosition++;
+                    continue;
+                } else if (mpHost->mBlankLineBehaviour == Host::BlankLineBehaviour::ReplaceWithSpace) {
+                    const TChar::AttributeFlags attributeFlags =
+                            ((mIsDefaultColor ? mBold : false) ? TChar::Bold : TChar::None)
+                            | (mItalics ? TChar::Italic : TChar::None)
+                            | (mOverline ? TChar::Overline : TChar::None)
+                            | (mReverse ? TChar::Reverse : TChar::None)
+                            | (mStrikeOut ? TChar::StrikeOut : TChar::None)
+                            | (mUnderline ? TChar::Underline : TChar::None);
+
+                    // Note: we are using the background color for the
+                    // foreground color as well so that we are transparent:
+                    const TChar c(mBackGroundColor, mBackGroundColor, attributeFlags);
+                    mMudLine.append(QChar::Space);
+                    mMudBuffer.push_back(c);
+                }
+            }
+
             if (static_cast<size_t>(mMudLine.size()) != mMudBuffer.size()) {
                 qWarning() << "TBuffer::translateToPlainText(...) WARNING: mismatch in new text "
                               "data character and attribute data items!";
             }
 
             if (!lineBuffer.back().isEmpty()) {
-                if (mMudLine.size() > 0) {
+                if (!mMudLine.isEmpty()) {
                     lineBuffer << mMudLine;
                 } else {
                     if (ch == '\r') {
@@ -731,7 +728,7 @@ COMMIT_LINE:
                     promptBuffer.append(false);
                 }
             } else {
-                if (mMudLine.size() > 0) {
+                if (!mMudLine.isEmpty()) {
                     lineBuffer.back().append(mMudLine);
                 } else {
                     if (ch == '\r') {
@@ -934,68 +931,22 @@ void TBuffer::decodeSGR38(const QStringList& parameters, bool isColonSeparated)
 
         } else if (tag < 232) {
             // because color 1-15 behave like normal ANSI colors
-            tag -= 16;
+           tag -= 16;
             // 6x6x6 RGB color space
             quint8 r = tag / 36;
             quint8 g = (tag - (r * 36)) / 6;
             quint8 b = (tag - (r * 36)) - (g * 6);
-            // Did use 42 as a factor but that isn't right
-            // as it yields:
-            // 0:0; 1:42; 2:84; 3:126; 4:168; 5:210
-            // 6 x 42 DOES equal 252 BUT IT IS OUT OF RANGE
-            // Instead we use 51:
-            // 0:0; 1:51; 2:102; 3:153; 4:204: 5:255
-            mForeGroundColor = QColor(r * 51, g * 51, b * 51);
+            // Adjusted from previously linear gradient for the blocks.
+            // To match the common terminal palettes, the values are
+            // scaled as follows:
+            // 0: 0, 1: 95, 2:135, 3:175, 4:215, 5:255
+            mForeGroundColor = QColor(r == 0 ? 0 : (r - 1) * 40 + 95,
+                                      g == 0 ? 0 : (g - 1) * 40 + 95,
+                                      b == 0 ? 0 : (b - 1) * 40 + 95);
             mForeGroundColorLight = mForeGroundColor;
 
         } else {
-            // black + 23 tone grayscale from dark to light
-            // gray. Similar to RGB case the multiplier was
-            // a bit off we had been using 10 but:
-            // 23 x 10 = 230
-            // whereas 23 should map to 255, this requires
-            // a non-integer multiplier, instead of
-            // multiplying and rounding we, for speed, can
-            // use a look-up table:
-            int value = 0;
-            // clang-format off
-            switch (tag) {
-                case 232:   value =   0; break; //   0.000
-                case 233:   value =  11; break; //  11.087
-                case 234:   value =  22; break; //  22.174
-                case 235:   value =  33; break; //  33.261
-                case 236:   value =  44; break; //  44.348
-                case 237:   value =  55; break; //  55.435
-                case 238:   value =  67; break; //  66.522
-                case 239:   value =  78; break; //  77.609
-                case 240:   value =  89; break; //  88.696
-                case 241:   value = 100; break; //  99.783
-                case 242:   value = 111; break; // 110.870
-                case 243:   value = 122; break; // 121.957
-                case 244:   value = 133; break; // 133.043
-                case 245:   value = 144; break; // 144.130
-                case 246:   value = 155; break; // 155.217
-                case 247:   value = 166; break; // 166.304
-                case 248:   value = 177; break; // 177.391
-                case 249:   value = 188; break; // 188.478
-                case 250:   value = 200; break; // 199.565
-                case 251:   value = 211; break; // 210.652
-                case 252:   value = 222; break; // 221.739
-                case 253:   value = 233; break; // 232.826
-                case 254:   value = 244; break; // 243.913
-                case 255:   value = 255; break; // 255.000
-                default:
-                    value = 192;
-#if defined(DEBUG_SGR_PROCESSING)
-                    if (isColonSeparated) {
-                        qDebug().noquote().nospace() << "TBuffer::decodeSGR38(...) ERROR - unexpected color index parameter element (the third part) in a SGR...;38:5:" << parameters.at(2) << ";..m sequence treating it as 192!";
-                    } else {
-                        qDebug().noquote().nospace() << "TBuffer::decodeSGR38(...) ERROR - unexpected color index parameter element (the third part) in a SGR...;38;5;" << parameters.at(2) << ";..m sequence treating it as 192!";
-                    }
-#endif
-            }
-
-             // clang-format on
+            int value = (tag - 232) * 10 + 8;
             mForeGroundColor = QColor(value, value, value);
             mForeGroundColorLight = mForeGroundColor;
         }
@@ -1053,9 +1004,9 @@ void TBuffer::decodeSGR38(const QStringList& parameters, bool isColonSeparated)
 
 #if defined(DEBUG_SGR_PROCESSING)
         if (isColonSeparated) {
-            qDebug().noquote().nospace() << "TBuffer::decodeSGR38(...) WARNING - unexpect SGR code: SGR...;38:" << parameters.at(1) << ":...;...m ignoring sequence!";
+            qDebug().noquote().nospace() << "TBuffer::decodeSGR38(...) WARNING - unexpected SGR code: SGR...;38:" << parameters.at(1) << ":...;...m ignoring sequence!";
         } else {
-            qDebug().noquote().nospace() << "TBuffer::decodeSGR38(...) WARNING - unexpect SGR code: SGR...;38;" << parameters.at(1) << ";...m ignoring sequence!";
+            qDebug().noquote().nospace() << "TBuffer::decodeSGR38(...) WARNING - unexpected SGR code: SGR...;38;" << parameters.at(1) << ";...m ignoring sequence!";
         }
 #endif
 
@@ -1149,61 +1100,16 @@ void TBuffer::decodeSGR48(const QStringList& parameters, bool isColonSeparated)
             quint8 r = tag / 36;
             quint8 g = (tag - (r * 36)) / 6;
             quint8 b = (tag - (r * 36)) - (g * 6);
-            // Did use 42 as a factor but that isn't right
-            // as it yields:
-            // 0:0; 1:42; 2:84; 3:126; 4:168; 5:210
-            // 6 x 42 DOES equal 252 BUT IT IS OUT OF RANGE
-            // Instead we use 51:
-            // 0:0; 1:51; 2:102; 3:153; 4:204: 5:255
-            mBackGroundColor = QColor(r * 51, g * 51, b * 51);
+            // Adjusted from previously linear gradient for the blocks.
+            // To match the common terminal palettes, the values are
+            // scaled as follows:
+            // 0: 0, 1: 95, 2:135, 3:175, 4:215, 5:255
+            mBackGroundColor = QColor(r == 0 ? 0 : (r - 1) * 40 + 95,
+                                      g == 0 ? 0 : (g - 1) * 40 + 95,
+                                      b == 0 ? 0 : (b - 1) * 40 + 95);
 
         } else {
-            // black + 23 tone grayscale from dark to light
-            // gray. Similar to RGB case the multiplier was
-            // a bit off we had been using 10 but:
-            // 23 x 10 = 230
-            // whereas 23 should map to 255, this requires
-            // a non-integer multiplier, instead of
-            // multiplying and rounding we, for speed, can
-            // use a look-up table:
-            int value = 0;
-            // clang-format off
-            switch (tag) {
-                case 232:   value =   0; break; //   0.000
-                case 233:   value =  11; break; //  11.087
-                case 234:   value =  22; break; //  22.174
-                case 235:   value =  33; break; //  33.261
-                case 236:   value =  44; break; //  44.348
-                case 237:   value =  55; break; //  55.435
-                case 238:   value =  67; break; //  66.522
-                case 239:   value =  78; break; //  77.609
-                case 240:   value =  89; break; //  88.696
-                case 241:   value = 100; break; //  99.783
-                case 242:   value = 111; break; // 110.870
-                case 243:   value = 122; break; // 121.957
-                case 244:   value = 133; break; // 133.043
-                case 245:   value = 144; break; // 144.130
-                case 246:   value = 155; break; // 155.217
-                case 247:   value = 166; break; // 166.304
-                case 248:   value = 177; break; // 177.391
-                case 249:   value = 188; break; // 188.478
-                case 250:   value = 200; break; // 199.565
-                case 251:   value = 211; break; // 210.652
-                case 252:   value = 222; break; // 221.739
-                case 253:   value = 233; break; // 232.826
-                case 254:   value = 244; break; // 243.913
-                case 255:   value = 255; break; // 255.000
-                default:
-                    value = 64;
-#if defined(DEBUG_SGR_PROCESSING)
-                    if (isColonSeparated) {
-                        qDebug().noquote().nospace() << "TBuffer::decodeSGR48(...) ERROR - unexpected color index parameter element (the third part) in a SGR...;48:5:" << parameters.at(2) << ";..m sequence treating it as 64!";
-                    } else {
-                        qDebug().noquote().nospace() << "TBuffer::decodeSGR48(...) ERROR - unexpected color index parameter element (the third part) in a SGR...;48;5;" << parameters.at(2) << ";..m sequence treating it as 64!";
-                    }
-#endif
-            }
-             // clang-format on
+            int value = (tag - 232) * 10 + 8;
             mBackGroundColor = QColor(value, value, value);
         }
 
@@ -1262,9 +1168,9 @@ void TBuffer::decodeSGR48(const QStringList& parameters, bool isColonSeparated)
 
 #if defined(DEBUG_SGR_PROCESSING)
         if (isColonSeparated) {
-            qDebug().noquote().nospace() << "TBuffer::decodeSGR48(...) WARNING - unexpect SGR code: SGR...;48:" << parameters.at(1) << ":...;...m ignoring sequence!";
+            qDebug().noquote().nospace() << "TBuffer::decodeSGR48(...) WARNING - unexpected SGR code: SGR...;48:" << parameters.at(1) << ":...;...m ignoring sequence!";
         } else {
-            qDebug().noquote().nospace() << "TBuffer::decodeSGR48(...) WARNING - unexpect SGR code: SGR...;48;" << parameters.at(1) << ";...m ignoring sequence!";
+            qDebug().noquote().nospace() << "TBuffer::decodeSGR48(...) WARNING - unexpected SGR code: SGR...;48;" << parameters.at(1) << ";...m ignoring sequence!";
         }
 #endif
     }
@@ -1576,14 +1482,14 @@ void TBuffer::decodeSGR(const QString& sequence)
                 case 3:
                     // There is a proposal by the "VTE" terminal
                     // emulator to use a (sub)parameter entry to
-                    // destinguish between italics and slanted text by
+                    // distinguish between italics and slanted text by
                     // using ESC[...;3:1;...m and ESC[...;3:2;...m
                     // respectively - that is handled above in the colon
                     // sub-string separated part:
                     mItalics = true;
                     break;
                 case 4:
-                    // There is a implimention by some terminal
+                    // There is a implementation by some terminal
                     // emulators ("Kitty" and "VTE") to use a
                     // (sub)parameter entry of 3 for a wavy underline
                     // {presumably 2 would be a double underline and 1
@@ -2119,7 +2025,7 @@ void TBuffer::resetColors()
     }
 
     // These should match the corresponding settings in
-    // dlgProfilePreferences::resetColors() :
+    // dlgProfilePreferences::slot_resetColors() :
     pHost->mBlack = Qt::black;
     pHost->mLightBlack = Qt::darkGray;
     pHost->mRed = Qt::darkRed;
@@ -2151,7 +2057,7 @@ void TBuffer::resetColors()
 void TBuffer::append(const QString& text, int sub_start, int sub_end, TChar format, int linkID)
 {
     // CHECK: What about other Unicode line breaks, e.g. soft-hyphen:
-    const QString lineBreaks = QStringLiteral(",.- ");
+    const QString lineBreaks = qsl(",.- ");
 
     if (static_cast<int>(buffer.size()) > mLinesLimit) {
         shrinkBuffer();
@@ -2172,7 +2078,7 @@ void TBuffer::append(const QString& text, int sub_start, int sub_end, TChar form
         promptBuffer << false;
         last = 0;
     }
-    bool firstChar = (lineBuffer.back().size() == 0);
+    bool firstChar = (lineBuffer.back().isEmpty());
     int length = text.size();
     if (length < 1) {
         return;
@@ -2201,8 +2107,9 @@ void TBuffer::append(const QString& text, int sub_start, int sub_end, TChar form
         if (lineBuffer.back().size() >= mWrapAt) {
             for (int i = lineBuffer.back().size() - 1; i >= 0; --i) {
                 if (lineBreaks.indexOf(lineBuffer.back().at(i)) > -1) {
-                    QString tmp = lineBuffer.back().mid(0, i + 1);
-                    QString lineRest = lineBuffer.back().mid(i + 1);
+                    const int linebreakPos = (i != 0) ? i + 1 : lineBuffer.back().size();
+                    QString tmp = lineBuffer.back().mid(0, linebreakPos);
+                    QString lineRest = lineBuffer.back().mid(linebreakPos);
                     lineBuffer.back() = tmp;
                     std::deque<TChar> newLine;
 
@@ -2248,7 +2155,7 @@ void TBuffer::append(const QString& text, int sub_start, int sub_end, TChar form
 void TBuffer::append(const QString& text, int sub_start, int sub_end, const QColor& fgColor, const QColor& bgColor, TChar::AttributeFlags flags, int linkID)
 {
     // CHECK: What about other Unicode line breaks, e.g. soft-hyphen:
-    const QString lineBreaks = QStringLiteral(",.- ");
+    const QString lineBreaks = qsl(",.- ");
 
     if (static_cast<int>(buffer.size()) > mLinesLimit) {
         shrinkBuffer();
@@ -2291,9 +2198,11 @@ void TBuffer::append(const QString& text, int sub_start, int sub_end, const QCol
         // multiplied by mWrap:
         if (lineBuffer.back().size() >= mWrapAt) {
             for (int i = lineBuffer.back().size() - 1; i >= 0; --i) {
-                if (lineBreaks.indexOf(lineBuffer.back().at(i)) > -1) {
-                    QString tmp = lineBuffer.back().mid(0, i + 1);
-                    QString lineRest = lineBuffer.back().mid(i + 1);
+                // insert linebreak either at linebreaking character location or at last character of line
+                if (lineBreaks.indexOf(lineBuffer.back().at(i)) > -1 || i == 0) {
+                    const int linebreakPos = (i != 0) ? i + 1 : lineBuffer.back().size();
+                    QString tmp = lineBuffer.back().mid(0, linebreakPos);
+                    QString lineRest = lineBuffer.back().mid(linebreakPos);
                     lineBuffer.back() = tmp;
                     std::deque<TChar> newLine;
 
@@ -2391,7 +2300,7 @@ bool TBuffer::insertInLine(QPoint& P, const QString& text, const TChar& format)
             return false;
         }
         if (x >= static_cast<int>(buffer.at(y).size())) {
-            TChar c;
+            TChar c(mpConsole);
             expandLine(y, x - buffer.at(y).size(), c);
         }
         for (int i = 0, total = text.size(); i < total; ++i) {
@@ -2408,7 +2317,7 @@ bool TBuffer::insertInLine(QPoint& P, const QString& text, const TChar& format)
 
 // This is very poorly designed as P2 is used to determine the last character to
 // copy BUT no consideration is given to P2.y() != p1.y() i.e. a copy of more
-// than a single line - and it copys a single QChar at a time....
+// than a single line - and it copies a single QChar at a time....
 TBuffer TBuffer::copy(QPoint& P1, QPoint& P2)
 {
     TBuffer slice(mpHost);
@@ -2426,7 +2335,7 @@ TBuffer TBuffer::copy(QPoint& P1, QPoint& P2)
     for (int total = P2.x(); x < total; ++x) {
         int linkId = buffer.at(y).at(x).linkIndex();
         if (linkId && (linkId != oldLinkId)) {
-            id = slice.mLinkStore.addLinks(mLinkStore.getLinksConst(linkId), mLinkStore.getHintsConst(linkId));
+            id = slice.mLinkStore.addLinks(mLinkStore.getLinksConst(linkId), mLinkStore.getHintsConst(linkId), mpHost);
             oldLinkId = linkId;
         }
 
@@ -2444,7 +2353,7 @@ TBuffer TBuffer::copy(QPoint& P1, QPoint& P2)
 TBuffer TBuffer::cut(QPoint& P1, QPoint& P2)
 {
     TBuffer slice = copy(P1, P2);
-    TChar format;
+    TChar format(mpConsole);
     replaceInLine(P1, P2, QString(), format);
     return slice;
 }
@@ -2486,7 +2395,7 @@ void TBuffer::paste(QPoint& P, const TBuffer& chunk)
     }
 
     if (hasAppended && y != -1) {
-        TChar format;
+        TChar format(mpConsole);
         wrapLine(y, mWrapAt, mWrapIndent, format);
     }
 }
@@ -2501,7 +2410,7 @@ void TBuffer::appendBuffer(const TBuffer& chunk)
     for (int cx = 0, total = static_cast<int>(chunk.buffer.at(0).size()); cx < total; ++cx) {
         int linkId = chunk.buffer.at(0).at(cx).linkIndex();
         if (linkId && (oldLinkId != linkId)) {
-            id = mLinkStore.addLinks(chunk.mLinkStore.getLinksConst(linkId), chunk.mLinkStore.getHintsConst(linkId));
+            id = mLinkStore.addLinks(chunk.mLinkStore.getLinksConst(linkId), chunk.mLinkStore.getHintsConst(linkId), mpHost);
             oldLinkId = linkId;
         }
         if (!linkId) {
@@ -2516,7 +2425,7 @@ void TBuffer::appendBuffer(const TBuffer& chunk)
 
 int TBuffer::calculateWrapPosition(int lineNumber, int begin, int end)
 {
-    const QString lineBreaks = QStringLiteral("- \n");
+    const QString lineBreaks = qsl("- \n");
     if (lineBuffer.size() < lineNumber) {
         return 0;
     }
@@ -2530,7 +2439,8 @@ int TBuffer::calculateWrapPosition(int lineNumber, int begin, int end)
             return i;
         }
     }
-    return 0;
+
+    return lineSize;
 }
 
 inline int TBuffer::skipSpacesAtBeginOfLine(const int row, const int column)
@@ -2562,6 +2472,7 @@ inline int TBuffer::wrap(int startLine)
     QStringList timeList;
     QList<bool> promptList;
     int lineCount = 0;
+    TChar pSpace(mpConsole);
     for (int i = startLine, total = static_cast<int>(buffer.size()); i < total; ++i) {
         bool isPrompt = promptBuffer[i];
         std::deque<TChar> newLine;
@@ -2570,7 +2481,6 @@ inline int TBuffer::wrap(int startLine)
         int indent = 0;
         if (static_cast<int>(buffer[i].size()) >= mWrapAt) {
             for (int i3 = 0; i3 < mWrapIndent; ++i3) {
-                TChar pSpace;
                 newLine.push_back(pSpace);
                 lineText.append(" ");
             }
@@ -2824,7 +2734,7 @@ bool TBuffer::moveCursor(QPoint& where)
     }
 
     if (static_cast<int>(buffer[y].size()) - 1 > x) {
-        TChar c;
+        TChar c(mpConsole);
         // CHECKME: should "buffer[cookedY].size() - 1" be bracketed - which would change the -1 to +1 in the following:
         expandLine(y, x - buffer[y].size() - 1, c);
     }
@@ -2833,7 +2743,7 @@ bool TBuffer::moveCursor(QPoint& where)
 
 // Needed, at least, as a filler for missing lines past end of the lineBuffer
 // requested by lua function getLines(...):
-QString badLineError = QStringLiteral("ERROR: invalid line number");
+QString badLineError = qsl("ERROR: invalid line number");
 
 QString& TBuffer::line(int n)
 {
@@ -2959,6 +2869,18 @@ void TBuffer::shrinkBuffer()
         buffer.pop_front();
         mCursorY--;
     }
+
+    if (mpConsole->getType() & (TConsole::MainConsole|TConsole::UserWindow|TConsole::SubConsole|TConsole::Buffer)) {
+        // Signal to lua subsystem that indexes into the Console will need adjusting
+        TEvent bufferShrinkEvent{};
+        bufferShrinkEvent.mArgumentList.append(QLatin1String("sysBufferShrinkEvent"));
+        bufferShrinkEvent.mArgumentTypeList.append(ARGUMENT_TYPE_STRING);
+        bufferShrinkEvent.mArgumentList.append(mpConsole->mConsoleName);
+        bufferShrinkEvent.mArgumentTypeList.append(ARGUMENT_TYPE_STRING);
+        bufferShrinkEvent.mArgumentList.append(QString::number(mBatchDeleteSize));
+        bufferShrinkEvent.mArgumentTypeList.append(ARGUMENT_TYPE_NUMBER);
+        mpHost->raiseEvent(bufferShrinkEvent);
+    }
 }
 
 bool TBuffer::deleteLines(int from, int to)
@@ -2979,7 +2901,7 @@ bool TBuffer::deleteLines(int from, int to)
     }
 }
 
-bool TBuffer::applyLink(const QPoint& P_begin, const QPoint& P_end, const QStringList& linkFunction, const QStringList& linkHint)
+bool TBuffer::applyLink(const QPoint& P_begin, const QPoint& P_end, const QStringList& linkFunction, const QStringList& linkHint, QVector<int> luaReference)
 {
     int x1 = P_begin.x();
     int x2 = P_end.x();
@@ -3012,7 +2934,7 @@ bool TBuffer::applyLink(const QPoint& P_begin, const QPoint& P_end, const QStrin
                     }
                 }
                 if (linkID == 0) {
-                    linkID = mLinkStore.addLinks(linkFunction, linkHint);
+                    linkID = mLinkStore.addLinks(linkFunction, linkHint, mpHost, luaReference);
                 }
                 buffer.at(y).at(x++).mLinkIndex = linkID;
             }
@@ -3210,7 +3132,7 @@ QString TBuffer::bufferToHtml(const bool showTimeStamp /*= false*/, const int ro
     // we will NOT need a closing "</span>"
     if (showTimeStamp && !timeBuffer.at(row).isEmpty()) {
         // TODO: formatting according to TTextEdit.cpp: if( i2 < timeOffset ) - needs updating if we allow the colours to be user set:
-        s.append(QStringLiteral("<span style=\"color: rgb(200,150,0); background: rgb(22,22,22); \">%1").arg(timeBuffer.at(row).left(timeStampFormat.length())));
+        s.append(qsl("<span style=\"color: rgb(200,150,0); background: rgb(22,22,22); \">%1").arg(timeBuffer.at(row).left(timeStampFormat.length())));
         // Set the current idea of what the formatting is so we can spot if it
         // changes:
         currentFgColor = QColor(200, 150, 0);
@@ -3232,7 +3154,7 @@ QString TBuffer::bufferToHtml(const bool showTimeStamp /*= false*/, const int ro
         }
 
         // Pad out with spaces to the right so a partial first line lines up
-        s.append(QStringLiteral("<span>%1").arg(QString(spacePadding, QChar::Space)));
+        s.append(qsl("<span>%1").arg(QString(spacePadding, QChar::Space)));
     }
 
     for (auto cookedPos = static_cast<unsigned long>(pos); pos < lastPos; ++cookedPos, ++pos) {
@@ -3254,25 +3176,25 @@ QString TBuffer::bufferToHtml(const bool showTimeStamp /*= false*/, const int ro
             // clang-format off
             if (currentFlags & TChar::Reverse) {
                 // Swap the fore and background colours:
-                s.append(QStringLiteral("<span style=\"color: rgb(%1,%2,%3); background: rgb(%4,%5,%6); %7%8%9\">")
+                s.append(qsl("<span style=\"color: rgb(%1,%2,%3); background: rgb(%4,%5,%6); %7%8%9\">")
                          .arg(QString::number(currentBgColor.red()), QString::number(currentBgColor.green()), QString::number(currentBgColor.blue()), // args 1 to 3
                               QString::number(currentFgColor.red()), QString::number(currentFgColor.green()), QString::number(currentFgColor.blue()), // args 4 to 6
                               currentFlags & TChar::Bold ? QLatin1String(" font-weight: bold;") : QString(), // arg 7
                               currentFlags & TChar::Italic ? QLatin1String(" font-style: italic;") : QString(), // arg 8
                               currentFlags & (TChar::Underline | TChar::StrikeOut | TChar::Overline ) // remainder is arg 9
-                              ? QStringLiteral(" text-decoration:%1%2%3")
+                              ? qsl(" text-decoration:%1%2%3")
                                 .arg(currentFlags & TChar::Underline ? QLatin1String(" underline") : QString(),
                                      currentFlags & TChar::StrikeOut ? QLatin1String(" line-through") : QString(),
                                      currentFlags & TChar::Overline ? QLatin1String(" overline") : QString())
                               : QString()));
             } else {
-                s.append(QStringLiteral("<span style=\"color: rgb(%1,%2,%3); background: rgb(%4,%5,%6); %7%8%9\">")
+                s.append(qsl("<span style=\"color: rgb(%1,%2,%3); background: rgb(%4,%5,%6); %7%8%9\">")
                          .arg(QString::number(currentFgColor.red()), QString::number(currentFgColor.green()), QString::number(currentFgColor.blue()), // args 1 to 3
                               QString::number(currentBgColor.red()), QString::number(currentBgColor.green()), QString::number(currentBgColor.blue()), // args 4 to 6
                               currentFlags & TChar::Bold ? QLatin1String(" font-weight: bold;") : QString(), // arg 7
                               currentFlags & TChar::Italic ? QLatin1String(" font-style: italic;") : QString(), // arg 8
                               currentFlags & (TChar::Underline | TChar::StrikeOut | TChar::Overline ) // remainder is arg 9
-                              ? QStringLiteral(" text-decoration:%1%2%3")
+                              ? qsl(" text-decoration:%1%2%3")
                                 .arg(currentFlags & TChar::Underline ? QLatin1String(" underline") : QString(),
                                      currentFlags & TChar::StrikeOut ? QLatin1String(" line-through") : QString(),
                                      currentFlags & TChar::Overline ? QLatin1String(" overline") : QString())
@@ -3347,7 +3269,7 @@ bool TBuffer::processUtf8Sequence(const std::string& bufferData, const bool isFr
             // locally generated material from Lua feedTriggers(...)
             if (isFromServer) {
 #if defined(DEBUG_UTF8_PROCESSING)
-                qDebug() << "TBuffer::processUtf8Sequence(...) Insufficent bytes in buffer to complate UTF-8 sequence, need:" << utf8SequenceLength
+                qDebug() << "TBuffer::processUtf8Sequence(...) Insufficient bytes in buffer to complete UTF-8 sequence, need:" << utf8SequenceLength
                          << " but we currently only have: " << bufferData.substr(pos).length() << " bytes (which we will store for next call to this method)...";
 #endif
                 mIncompleteSequenceBytes = bufferData.substr(pos);
@@ -3515,7 +3437,7 @@ bool TBuffer::processUtf8Sequence(const std::string& bufferData, const bool isFr
 #if defined(DEBUG_UTF8_PROCESSING)
             QString debugMsg;
             for (size_t i = 0; i < utf8SequenceLength; ++i) {
-                debugMsg.append(QStringLiteral("<%1>").arg(static_cast<quint8>(bufferData.at(pos + i)), 2, 16, QChar('0')));
+                debugMsg.append(qsl("<%1>").arg(static_cast<quint8>(bufferData.at(pos + i)), 2, 16, QChar('0')));
             }
             qDebug().nospace() << "    Sequence bytes are: " << debugMsg;
 #endif
@@ -3544,7 +3466,7 @@ bool TBuffer::processGBSequence(const std::string& bufferData, const bool isFrom
 // mapping, instead we use one TChar per QChar - and that has to be
 // tweaked for non-BMP characters that use TWO QChars per codepoint.
 // GB2312 is the predecessor to both and - according to Wikipedia (EN) covers
-// over 99% of the characters of contempory usage.
+// over 99% of the characters of contemporary usage.
 // GBK is a sub-set of GB18030 so can be processed in the same method
 // Assume we are at the first byte of a single (ASCII), pair (GBK/GB18030)
 // or four byte (GB18030) sequence
@@ -3715,8 +3637,8 @@ bool TBuffer::processGBSequence(const std::string& bufferData, const bool isFrom
             // Not enough bytes to process yet - so store what we have and return
             if (isFromServer) {
 #if defined(DEBUG_GB_PROCESSING)
-                qDebug().nospace() << "TBuffer::processGBSequence(...) Insufficent bytes in buffer to "
-                                      "complate GB2312/GBK sequence, need at least: "
+                qDebug().nospace() << "TBuffer::processGBSequence(...) Insufficient bytes in buffer to "
+                                      "complete GB2312/GBK sequence, need at least: "
                                    << gbSequenceLength << " but we currently only have: " << bufferData.substr(pos).length() << " bytes (which we will store for next call to this method)...";
 #endif
                 mIncompleteSequenceBytes = bufferData.substr(pos);
@@ -3747,8 +3669,8 @@ bool TBuffer::processGBSequence(const std::string& bufferData, const bool isFrom
                     // Not enough bytes to process yet - so store what we have and return
                     if (isFromServer) {
 #if defined(DEBUG_GB_PROCESSING)
-                        qDebug().nospace() << "TBuffer::processGBSequence(...) Insufficent bytes in buffer to "
-                                              "complate GB18030 sequence, need at least: "
+                        qDebug().nospace() << "TBuffer::processGBSequence(...) Insufficient bytes in buffer to "
+                                              "complete GB18030 sequence, need at least: "
                                            << gbSequenceLength << " but we currently only have: " << bufferData.substr(pos).length() << " bytes (which we will store for next call to this method)...";
 #endif
                         mIncompleteSequenceBytes = bufferData.substr(pos);
@@ -3900,7 +3822,7 @@ bool TBuffer::processGBSequence(const std::string& bufferData, const bool isFrom
             // we only have one - so store what we have and return
             if (isFromServer) {
 #if defined(DEBUG_GB_PROCESSING)
-                qDebug().nospace() << "TBuffer::processGBSequence(...) Insufficent bytes in buffer to complate GB18030 sequence, need at least:"
+                qDebug().nospace() << "TBuffer::processGBSequence(...) Insufficient bytes in buffer to complete GB18030 sequence, need at least:"
                                    << gbSequenceLength << " but we currently only have: " << bufferData.substr(pos).length()
                                    << " bytes (which we will store for next call to this method)...";
 #endif
@@ -3958,7 +3880,7 @@ bool TBuffer::processGBSequence(const std::string& bufferData, const bool isFrom
 #if defined(DEBUG_GB_PROCESSING)
         QString debugMsg;
         for (size_t i = 0; i < gbSequenceLength; ++i) {
-            debugMsg.append(QStringLiteral("<%1>").arg(static_cast<quint8>(bufferData.at(pos + i)), 2, 16, QChar('0')));
+            debugMsg.append(qsl("<%1>").arg(static_cast<quint8>(bufferData.at(pos + i)), 2, 16, QChar('0')));
         }
         qDebug().nospace() << "    Sequence bytes are: " << debugMsg;
 #endif
@@ -4008,7 +3930,7 @@ bool TBuffer::processBig5Sequence(const std::string& bufferData, const bool isFr
             // Not enough bytes to process yet - so store what we have and return
             if (isFromServer) {
 #if defined(DEBUG_BIG5_PROCESSING)
-                qDebug().nospace() << "TBuffer::processBig5Sequence(...) Insufficent bytes in buffer to "
+                qDebug().nospace() << "TBuffer::processBig5Sequence(...) Insufficient bytes in buffer to "
                                       "complete Big5 sequence, need at least: "
                                    << big5SequenceLength << " but we currently only have: " << bufferData.substr(pos).length() << " bytes (which we will store for next call to this method)...";
 #endif
@@ -4083,7 +4005,7 @@ bool TBuffer::processBig5Sequence(const std::string& bufferData, const bool isFr
 #if defined(DEBUG_BIG5_PROCESSING)
         QString debugMsg;
         for (size_t i = 0; i < big5SequenceLength; ++i) {
-            debugMsg.append(QStringLiteral("<%1>").arg(static_cast<quint8>(bufferData.at(pos + i)), 2, 16, QChar('0')));
+            debugMsg.append(qsl("<%1>").arg(static_cast<quint8>(bufferData.at(pos + i)), 2, 16, QChar('0')));
         }
         qDebug().nospace() << "    Invalid.  Sequence bytes are: " << debugMsg;
 #endif

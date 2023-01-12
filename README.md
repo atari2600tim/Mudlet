@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <a href="https://github.com/Mudlet/Mudlet"><img src="https://bazaar.launchpad.net/~mudlet-makers/mudlet/artwork/download/head:/mudlet_main_256px.pn-20171109060211-hidv2woj9dffwyql-11/mudlet_main_256px.png" alt="Mudlet"></a>
+  <a href="https://github.com/Mudlet/Mudlet"><img src="https://github.com/Mudlet/artwork/blob/master/mudlet_main_256px.png?raw=true" alt="Mudlet"></a>
   <br>
   Mudlet
   <br>
@@ -67,7 +67,7 @@ It’s a modern breed of a client on the gaming scene – with an intuitive user
 
 <details>
   <summary>Explain?</summary>
-  
+
 ### Easy to use client
 
 We’re big on usability, and as such, creating an easy to use client and interface is one of the defining goals of the project. This applies to both the power users and usual gamers – everyone will feel at home with Mudlet, without having to waste too much time figuring out how to do something.
@@ -99,6 +99,10 @@ Download for free from [mudlet.org](https://www.mudlet.org/download/)
     1. Pick a `Profile name`
     1. Hit `Connect`
 
+## Vision
+
+Mudlet's [vision](https://www.mudlet.org/about/vision/) is to build the best text gaming experience possible to nurture & grow this niche scene.
+
 ## Roadmap
 
 See the [project's roadmap](https://www.mudlet.org/2019/09/mudlet-5-roadmap-focus-on-first-time-player-experience/) to get an idea of where it's headed, as well as contribute!
@@ -111,12 +115,26 @@ This software wouldnt've been possible without these open source packages:
 
 - [Qt](https://www.qt.io/)
 - [Lua](https://www.lua.org/)
+- [PCRE](https://www.pcre.org/)
 - [edbee](http://www.edbee.net/)
 - [DBLSQD](https://www.dblsqd.com/)
+- [argparse](https://github.com/luarocks/argparse)
+- [Boost Graph Library](https://www.boost.org/doc/libs/1_77_0/libs/graph/doc/)
+- [Busted](https://lunarmodules.github.io/busted/)
+- [Ccache](https://ccache.dev/)
 - [Communi](https://communi.github.io/)
-- [PCRE](https://www.pcre.org/)
-- [lua-yajl](https://github.com/brimworks/lua-yajl)
 - [Hunspell](https://hunspell.github.io/)
+- [lua-http](https://daurnimator.github.io/lua-http/)
+- [lua-yajl](https://github.com/brimworks/lua-yajl)
+- [lua-zip](https://github.com/brimworks/lua-zip)
+- [LuaFileSystem](http://keplerproject.github.io/luafilesystem/)
+- [Luarocks](https://luarocks.org/)
+- [LuaSQL](http://keplerproject.github.io/luasql/)
+- [luautf8](https://github.com/starwing/luautf8)
+- [pugixml](https://pugixml.org/)
+- [SQLite](https://sqlite.org/index.html)
+- [vcpkg](https://docs.microsoft.com/en-us/cpp/build/vcpkg?view=msvc-160)
+- [yajl](http://lloyd.github.io/yajl/)
 
 Credit to [Markdownify](https://github.com/amitmerchant1990/electron-markdownify) for the README inspiration.
 
@@ -129,3 +147,4 @@ GPL2+
 > [website](https://www.mudlet.org/) &nbsp;&middot;&nbsp;
 > [forums](https://forums.mudlet.org/) &nbsp;&middot;&nbsp;
 > [manual](https://wiki.mudlet.org/w/Manual:Contents)
+

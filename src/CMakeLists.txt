@@ -1,8 +1,10 @@
 ############################################################################
 #    Copyright (C) 2014-2017 by Ahmed Charles - acharles@outlook.com       #
-#    Copyright (C) 2015-2018, 2020 by Stephen Lyons                        #
+#    Copyright (C) 2015-2018, 2020, 2023 by Stephen Lyons                  #
 #                                                - slysven@virginmedia.com #
 #    Copyright (C) 2018 by Huadong Qi - novload@outlook.com                #
+#    Copyright (C) 2022 by Thiago Jung Bauermann - bauermann@kolabnow.com  #
+#    Copyright (C) 2022 by Piotr Wilczynski - delwing@gmail.com            #
 #                                                                          #
 #    This program is free software; you can redistribute it and/or modify  #
 #    it under the terms of the GNU General Public License as published by  #
@@ -47,6 +49,7 @@ set(mudlet_SRCS
     AliasUnit.cpp
     AltFocusMenuBarDisable.cpp
     ctelnet.cpp
+    DarkTheme.cpp
     discord.cpp
     dlgAboutDialog.cpp
     dlgActionMainArea.cpp
@@ -57,11 +60,14 @@ set(mudlet_SRCS
     dlgIRC.cpp
     dlgKeysMainArea.cpp
     dlgMapper.cpp
+    dlgMapLabel.cpp
+    dlgModuleManager.cpp
     dlgNotepad.cpp
     dlgPackageExporter.cpp
+    dlgPackageManager.cpp
     dlgProfilePreferences.cpp
     dlgRoomExits.cpp
-    dlgRoomSymbol.cpp
+    dlgRoomProperties.cpp
     dlgScriptsMainArea.cpp
     dlgSourceEditorArea.cpp
     dlgSourceEditorFindArea.cpp
@@ -80,9 +86,12 @@ set(mudlet_SRCS
     KeyUnit.cpp
     LuaInterface.cpp
     main.cpp
+    mapInfoContributorManager.cpp
     mudlet.cpp
+    ShortcutsManager.cpp
     ScriptUnit.cpp
     T2DMap.cpp
+    TAccessibleTextEdit.cpp
     TAction.cpp
     TAlias.cpp
     TArea.cpp
@@ -100,6 +109,7 @@ set(mudlet_SRCS
     TimerUnit.cpp
     TKey.cpp
     TLabel.cpp
+    TScrollBox.cpp
     TLinkStore.cpp
     TLuaInterpreter.cpp
     TMap.cpp
@@ -147,6 +157,15 @@ set(mudlet_SRCS
     XMLexport.cpp
     XMLimport.cpp)
 
+if(APPLE)
+  list(APPEND mudlet_SRCS AnnouncerMac.mm)
+elseif(WIN32)
+  list(APPEND mudlet_SRCS AnnouncerWindows.cpp)
+  list(APPEND mudlet_SRCS uiawrapper.cpp)
+else()
+  list(APPEND mudlet_SRCS AnnouncerUnix.cpp)
+endif()
+
 # This is for compiled UI files, not those used at runtime
 set(mudlet_UIS
     ui/about_dialog.ui
@@ -159,11 +178,14 @@ set(mudlet_UIS
     ui/irc.ui
     ui/keybindings_main_area.ui
     ui/main_window.ui
+    ui/module_manager.ui
+    ui/map_label.ui
     ui/mapper.ui
     ui/notes_editor.ui
+    ui/package_manager.ui
     ui/profile_preferences.ui
     ui/room_exits.ui
-    ui/room_symbol.ui
+    ui/room_properties.ui
     ui/scripts_main_area.ui
     ui/source_editor_area.ui
     ui/source_editor_find_area.ui
@@ -176,9 +198,11 @@ set(mudlet_UIS
 
 set(mudlet_HDRS
     ActionUnit.h
+    Announcer.h
     AliasUnit.h
     AltFocusMenuBarDisable.h
     ctelnet.h
+    DarkTheme.h
     discord.h
     dlgAboutDialog.h
     dlgActionMainArea.h
@@ -188,12 +212,15 @@ set(mudlet_HDRS
     dlgConnectionProfiles.h
     dlgIRC.h
     dlgKeysMainArea.h
+    dlgMapLabel.h
     dlgMapper.h
+    dlgModuleManager.h
     dlgNotepad.h
     dlgPackageExporter.h
+    dlgPackageManager.h
     dlgProfilePreferences.h
     dlgRoomExits.h
-    dlgRoomSymbol.h
+    dlgRoomProperties.h
     dlgScriptsMainArea.h
     dlgSourceEditorArea.h
     dlgSourceEditorFindArea.h
@@ -211,11 +238,15 @@ set(mudlet_HDRS
     ircmessageformatter.h
     KeyUnit.h
     LuaInterface.h
+    mapInfoContributorManager.h
     mudlet.h
     post_guard.h
     pre_guard.h
+    ShortcutsManager.h
     ScriptUnit.h
     T2DMap.h
+    TAccessibleConsole.h
+    TAccessibleTextEdit.h
     TAction.h
     TAlias.h
     TArea.h
@@ -236,6 +267,7 @@ set(mudlet_HDRS
     TimerUnit.h
     TKey.h
     TLabel.h
+    TScrollBox.h
     TLinkStore.h
     TLuaInterpreter.h
     TMainConsole.h
@@ -284,9 +316,14 @@ set(mudlet_HDRS
     TTrigger.h
     TVar.h
     VarUnit.h
+    utils.h
     widechar_width.h
     XMLexport.h
     XMLimport.h)
+
+if(WIN32)
+  list(APPEND mudlet_HDRS uiawrapper.h)
+endif()
 
 if(USE_UPDATER)
   list(APPEND mudlet_SRCS updater.cpp)
@@ -298,12 +335,28 @@ if(USE_3DMAPPER)
   list(APPEND mudlet_HDRS glwidget.h)
 endif(USE_3DMAPPER)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+macro(set_alternate_linker linker)
+  find_program(LINKER_EXECUTABLE ld.${USE_ALTERNATE_LINKER} ${USE_ALTERNATE_LINKER})
+  if(LINKER_EXECUTABLE)
+    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" AND "${CMAKE_CXX_COMPILER_VERSION}" VERSION_LESS 12.0.0)
+      add_link_options("-ld-path=${USE_ALTERNATE_LINKER}")
+    else()
+      add_link_options("-fuse-ld=${USE_ALTERNATE_LINKER}")
+    endif()
+  else()
+    set(USE_ALTERNATE_LINKER "" CACHE STRING "Use alternate linker" FORCE)
+  endif()
+endmacro()
+
+set(USE_ALTERNATE_LINKER "" CACHE STRING "Use alternate linker. Leave empty for system default; alternatives are 'gold', 'lld', 'bfd', 'mold'")
+if(NOT "${USE_ALTERNATE_LINKER}" STREQUAL "")
+  set_alternate_linker(${USE_ALTERNATE_LINKER})
+endif()
+
+include(../3rdparty/cmake-scripts/sanitizers.cmake)
 
 find_package(
-  Qt5 5.11 REQUIRED
+  Qt5 5.14 REQUIRED
   COMPONENTS Core
              Multimedia
              Network
@@ -314,9 +367,9 @@ find_package(
 find_package(Qt5 COMPONENTS Gamepad QUIET)
 find_package(Qt5 COMPONENTS TextToSpeech QUIET)
 
-if(Qt5Core_VERSION VERSION_LESS 5.11)
+if(Qt5Core_VERSION VERSION_LESS 5.14)
   message(
-    FATAL_ERROR "Mudlet requires Qt 5.11 or later, yours is ${Qt5Core_VERSION}")
+    FATAL_ERROR "Mudlet requires Qt 5.14 or later, yours is ${Qt5Core_VERSION}")
 else()
   # Qt Speech (or at least the TTS part) was officially release in 5.10
   message(STATUS "Qt version: ${Qt5Core_VERSION}")
@@ -350,15 +403,29 @@ endif()
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-add_executable(mudlet ${mudlet_SRCS} ${mudlet_RCCS} ${mudlet_HDRS}
-                      ${mudlet_UIS})
+add_executable(mudlet ${mudlet_SRCS} ${mudlet_RCCS} ${mudlet_HDRS} ${mudlet_UIS})
+
+########################### Debugging code inclusions ##########################
+# Controls the include/selection of extra code to aide developers debug various
+# features of Mudlet, generally speaking they will not be '#define'd in
+# production builds - uncomment the
+# 'target_compile_definitions(mudlet PRIVATE DEBUG__XXX)'
+# line here to include the relevant code:
+#
+# Other DEFINES+=DEBUG_XXX expected here as a result of:
+# https://github.com/Mudlet/Mudlet/issues/6314
+#
+# * Produce a timestamped message on the OS's command line when an autosave of
+# the map file gets requested and when such a request gets actioned (or
+# rejected because the profile is being loaded):
+# target_compile_definitions(mudlet PRIVATE DEBUG_MAPAUTOSAVE)
+
 target_sources(mudlet PRIVATE "${mudlet_BINARY_DIR}/translations/translated/qm.qrc")
 
-set_target_properties(
-  mudlet
-  PROPERTIES AUTOMOC ON AUTOUIC ON AUTOUIC_SEARCH_PATHS
-                                   "${CMAKE_CURRENT_SOURCE_DIR}/ui" AUTORCC ON
-             POSITION_INDEPENDENT_CODE ON)
+set_target_properties(mudlet PROPERTIES
+  AUTOUIC ON AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ui"
+  AUTOMOC ON AUTORCC ON POSITION_INDEPENDENT_CODE ON
+  AUTOGEN_ORIGIN_DEPENDS OFF)
 
 if(USE_FONTS)
   target_compile_definitions(mudlet PRIVATE INCLUDE_FONTS)
@@ -380,6 +447,14 @@ target_compile_definitions(mudlet
 
 if(USE_OWN_QT5KEYCHAIN)
     target_compile_definitions(mudlet PRIVATE INCLUDE_OWN_QT5_KEYCHAIN QTKEYCHAIN_NO_EXPORT)
+endif()
+
+# Used to force an include of winsock2.h BEFORE Qt tries to include winsock.h
+# from windows.h - only needed on Windows builds but we cannot use Q_OS_WIN32
+# for an #ifdef because we need a symbol that is defined BEFORE we include
+# any Qt header file!
+if(WIN32)
+    target_compile_definitions(mudlet PRIVATE INCLUDE_WINSOCK2)
 endif()
 
 # One of IRC_STATIC or IRC_SHARED must be defined for the communi IRC library
@@ -444,16 +519,42 @@ if(APPLE)
   if(USE_UPDATER)
     target_link_libraries(mudlet cocoa-qt-glue "-framework AppKit")
   endif(USE_UPDATER)
-  set_target_properties(mudlet PROPERTIES MACOSX_BUNDLE ON
-                                          MACOSX_BUNDLE_BUNDLE_NAME Mudlet)
 
-#  set_source_files_properties(${QT_TRANSLATIONS} PROPERTIES MACOSX_PACKAGE_LOCATION translations)
+  set_target_properties(mudlet PROPERTIES
+    MACOSX_BUNDLE ON
+    MACOSX_BUNDLE_BUNDLE_NAME Mudlet
+    MACOSX_BUNDLE_BUNDLE_VERSION ${APP_VERSION}${APP_BUILD}
+    MACOSX_BUNDLE_GUI_IDENTIFIER org.mudlet.mudlet
+    MACOSX_BUNDLE_SHORT_VERSION_STRING ${APP_VERSION}
+  )
+
+  if(${APP_BUILD} MATCHES "-ptb.+")
+    set_target_properties(mudlet PROPERTIES
+      MACOSX_BUNDLE_ICON_FILE mudlet_ptb.icns
+      MACOSX_BUNDLE_LONG_VERSION_STRING ${APP_VERSION}${APP_BUILD}
+    )
+    file(GLOB ICON_FILE "icons/mudlet_ptb.icns")
+  elseif((${APP_BUILD} MATCHES "-dev.+") OR (${APP_BUILD} MATCHES "-test.+"))
+    set_target_properties(mudlet PROPERTIES
+      MACOSX_BUNDLE_ICON_FILE mudlet_dev.icns
+      MACOSX_BUNDLE_LONG_VERSION_STRING ${APP_VERSION}${APP_BUILD}
+    )
+    file(GLOB ICON_FILE "icons/mudlet_dev.icns")
+  else()
+    set_target_properties(mudlet PROPERTIES
+      MACOSX_BUNDLE_ICON_FILE mudlet.icns
+      MACOSX_BUNDLE_LONG_VERSION_STRING ${APP_VERSION}
+    )
+    file(GLOB ICON_FILE "icons/mudlet.icns")
+  endif()
+
   file(GLOB_RECURSE MUDLET_LUA_FILES LIST_DIRECTORIES true "mudlet-lua/*")
   file(GLOB_RECURSE LUA_TRANSLATIONS LIST_DIRECTORIES true "../translations/lua/*")
   file(GLOB DIC_FILES "*.dic")
   file(GLOB AFF_FILES "*.aff")
-  target_sources(mudlet PRIVATE ${MUDLET_LUA_FILES} ${LUA_TRANSLATIONS} ${DIC_FILES} ${AFF_FILES})
-  
+  target_sources(mudlet PRIVATE ${MUDLET_LUA_FILES} ${LUA_TRANSLATIONS} ${DIC_FILES} ${AFF_FILES} ${ICON_FILE})
+
+  set_source_files_properties(${DIC_FILES} ${AFF_FILES} ${ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
   foreach(FILE ${MUDLET_LUA_FILES})
     string(REPLACE ${CMAKE_CURRENT_SOURCE_DIR} "" PATH_IN_BUNDLE ${FILE} )
     get_filename_component(PATH_IN_BUNDLE "${PATH_IN_BUNDLE}" DIRECTORY)
@@ -466,7 +567,6 @@ if(APPLE)
     get_filename_component(PATH_IN_BUNDLE "${PATH_IN_BUNDLE}" DIRECTORY)
     set_source_files_properties(${FILE} PROPERTIES MACOSX_PACKAGE_LOCATION Resources/translations/${PATH_IN_BUNDLE})
   endforeach()
-  set_source_files_properties(${DIC_FILES} ${AFF_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 endif()
 
 target_compile_options(mudlet PRIVATE -Wno-deprecated)
