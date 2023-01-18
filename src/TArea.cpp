@@ -1,7 +1,7 @@
 /***************************************************************************
  *   Copyright (C) 2008-2013 by Heiko Koehn - KoehnHeiko@googlemail.com    *
  *   Copyright (C) 2014 by Ahmed Charles - acharles@outlook.com            *
- *   Copyright (C) 2014-2016, 2020-2021 by Stephen Lyons                   *
+ *   Copyright (C) 2014-2016, 2020-2022 by Stephen Lyons                   *
  *                                               - slysven@virginmedia.com *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -48,17 +48,7 @@ static const int kPixmapDataLineSize = 64;
 
 
 TArea::TArea(TMap* pMap, TRoomDB* pRDB)
-: min_x(0)
-, min_y(0)
-, min_z(0)
-, max_x(0)
-, max_y(0)
-, max_z(0)
-, gridMode( false )
-, isZone( false )
-, zoneAreaRef( 0 )
-, mpRoomDB( pRDB )
-, mIsDirty( false )
+: mpRoomDB(pRDB)
 , mpMap(pMap)
 {
 }
@@ -486,7 +476,7 @@ void TArea::removeRoom(int room, bool isToDeferAreaRelatedRecalculations)
     QElapsedTimer timer;
     timer.start();
 
-    // Will use to flag whether some things have to be recalcuated.
+    // Will use to flag whether some things have to be recalculated.
     bool isOnExtreme = false;
     if (rooms.contains(room) && !isToDeferAreaRelatedRecalculations) {
         // just a check, if the area DOESN'T have the room then it is not wise
@@ -568,10 +558,10 @@ const QMultiMap<int, QPair<QString, int>> TArea::getAreaExitRoomData() const
                 itSpecialExit.next();
                 QPair<QString, int> exitData;
                 exitData.first = itSpecialExit.key();
+                exitData.second = itSpecialExit.value();
                 TRoom* pToRoom = mpRoomDB->getRoom(exitData.second);
                 if (pToRoom && mpRoomDB->getArea(pToRoom->getArea()) != this) {
                     // Note that pToRoom->getArea() is misnamed, should be getAreaId() !
-                    exitData.second = itSpecialExit.value();
                     if (!exitData.first.isEmpty()) {
                         results.insert(fromRoomId, exitData);
                     }
@@ -607,11 +597,7 @@ void TArea::writeJsonArea(QJsonArray& array) const
 
     writeJsonUserData(areaObj);
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
     QList<int> roomList{rooms.begin(), rooms.end()};
-#else
-    QList<int> roomList = rooms.toList();
-#endif
     int roomCount = roomList.count();
     if (roomCount > 1) {
         std::sort(roomList.begin(), roomList.end());
@@ -639,7 +625,6 @@ void TArea::writeJsonArea(QJsonArray& array) const
     }
     QJsonValue roomsValue{roomsArray};
     areaObj.insert(QLatin1String("rooms"), roomsValue);
-    mpMap->getCurrentProgressRoomCount();
 
     // Process the labels after the rooms so that the first area shows something
     // quickly (from the rooms) even if it has a number of labels to do.
@@ -701,7 +686,6 @@ void TArea::writeJsonUserData(QJsonObject& obj) const
 // Takes a userData object and parses all its elements
 void TArea::readJsonUserData(const QJsonObject& obj)
 {
-    QMap<QString, QString> results;
     if (obj.isEmpty()) {
         // Skip doing anything more if there is nothing to do:
         return;
@@ -725,10 +709,12 @@ void TArea::writeJsonLabels(QJsonObject& obj) const
     QMapIterator<int, TMapLabel> itMapLabel(mMapLabels);
     while (itMapLabel.hasNext()) {
         itMapLabel.next();
-        writeJsonLabel(labelArray, itMapLabel.key(), &itMapLabel.value());
-        if (mpMap->incrementJsonProgressDialog(true, false, 1)) {
-            // Cancel has been hit - so give up straight away:
-            return;
+        if (!itMapLabel.value().temporary) {
+            writeJsonLabel(labelArray, itMapLabel.key(), &itMapLabel.value());
+            if (mpMap->incrementJsonProgressDialog(true, false, 1)) {
+                // Cancel has been hit - so give up straight away:
+                return;
+            }
         }
     }
     QJsonValue labelsValue{labelArray};
@@ -773,9 +759,11 @@ void TArea::writeJsonLabel(QJsonArray& array, const int id, const TMapLabel* pLa
     if (!(pLabel->fgColor.red() == defaultLabelForeground.red()
           && pLabel->fgColor.green() == defaultLabelForeground.green()
           && pLabel->fgColor.blue() == defaultLabelForeground.blue()
+          && pLabel->fgColor.alpha() == defaultLabelForeground.alpha()
           && pLabel->bgColor.red() == defaultLabelBackground.red()
-          && pLabel->bgColor.red() == defaultLabelBackground.green()
-          && pLabel->bgColor.red() == defaultLabelBackground.blue())) {
+          && pLabel->bgColor.green() == defaultLabelBackground.green()
+          && pLabel->bgColor.blue() == defaultLabelBackground.blue()
+          && pLabel->bgColor.alpha() == defaultLabelBackground.alpha())) {
 
         // For an image the colors are not used and tend to be set to black, if
         // so skip them. Unfortunately because of the way QColour s are
@@ -926,7 +914,7 @@ QList<QByteArray> TArea::convertImageToBase64Data(const QPixmap& pixmap) const
     QBuffer imageInputBuffer;
 
     imageInputBuffer.open(QIODevice::WriteOnly);
-    // Go for maximum compresssion - for the smallest amount of data, the second
+    // Go for maximum compression - for the smallest amount of data, the second
     // argument is a const char[] so does not require a QString wrapper:
     pixmap.save(&imageInputBuffer, "PNG", 0);
     QBuffer imageOutputBuffer;
@@ -957,4 +945,29 @@ QPixmap TArea::convertBase64DataToImage(const QList<QByteArray>& pixmapArray) co
     pixmap.loadFromData(decodedImageArray);
 
     return pixmap;
+}
+
+QList<int> TArea::getPermanentLabelIds() const
+{
+    QMapIterator<int, TMapLabel> itLabel(mMapLabels);
+    QList<int> permanentLabels;
+    while (itLabel.hasNext()) {
+        itLabel.next();
+        if (!itLabel.value().temporary) {
+            permanentLabels.append(itLabel.key());
+        }
+    }
+    return permanentLabels;
+}
+
+bool TArea::hasPermanentLabels() const
+{
+    QMapIterator<int, TMapLabel> itLabel(mMapLabels);
+    while (itLabel.hasNext()) {
+        itLabel.next();
+        if (!itLabel.value().temporary) {
+            return true;
+        }
+    }
+    return false;
 }
