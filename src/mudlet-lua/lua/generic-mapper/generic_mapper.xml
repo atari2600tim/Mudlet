@@ -22,31 +22,6 @@
 				<integer>4</integer>
 			</regexCodePropertyList>
 		</Trigger>
-		<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
-			<name>Tab Trigger</name>
-			<script>local text = line
-local pos = selectString("\t",1)
-while pos ~= -1 do
-	replace(string.rep(" ",8 - math.fmod(pos,8)))
-	pos = selectString("\t",1)
-end</script>
-			<triggerType>0</triggerType>
-			<conditonLineDelta>0</conditonLineDelta>
-			<mStayOpen>0</mStayOpen>
-			<mCommand></mCommand>
-			<packageName></packageName>
-			<mFgColor>#ff0000</mFgColor>
-			<mBgColor>#ffff00</mBgColor>
-			<mSoundFile></mSoundFile>
-			<colorTriggerFgColor>#000000</colorTriggerFgColor>
-			<colorTriggerBgColor>#000000</colorTriggerBgColor>
-			<regexCodeList>
-				<string>\t</string>
-			</regexCodeList>
-			<regexCodePropertyList>
-				<integer>1</integer>
-			</regexCodePropertyList>
-		</Trigger>
 		<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 			<name>English Trigger Group</name>
 			<script></script>
@@ -78,7 +53,7 @@ end</script>
 				<regexCodeList>
 					<string>(?i)^\s*\[\s*Exits:\s*(.*)\]</string>
 					<string>^\s*There (?:is|are) \w+ (?:visible|obvious) exit[s]?:\s*(.*)</string>
-					<string>^\[?\s*(?:[Vv]isible|[Oo]bvious) (?:[Pp]ath|[Ee]xit)[s]?(?: is| are)?:?\s*(.*)\]?</string>
+					<string>^\[?[\s\w]*(?:[Vv]isible|[Oo]bvious) (?:[Pp]ath|[Ee]xit)[s]?(?: is| are)?:?\s*(.*)\]?</string>
 					<string>^\s*You see[\w\s]* exit[s]? leading (.*)</string>
 					<string>Exits:\s*(.*)</string>
 					<string>There are no obvious exits.</string>
@@ -321,8 +296,14 @@ setTriggerStayOpen("English Multi-Line Exits Trigger",1)</script>
 					<string>^\s*这里明显的出口有 (.*)。</string>
 					<string>^\s*这里明显的出口是 (.*)。</string>
 					<string>^\s*这里唯一的出口是 (.*)。</string>
+					<string>^\s*這裏明顯的出口是 (.*)。</string>
+					<string>^\s*這裏唯一的出口是 (.*)。</string>
+					<string>^\s*這裏明顯的方向有 (.*)。</string>
 				</regexCodeList>
 				<regexCodePropertyList>
+					<integer>1</integer>
+					<integer>1</integer>
+					<integer>1</integer>
 					<integer>1</integer>
 					<integer>1</integer>
 					<integer>1</integer>
@@ -400,6 +381,18 @@ end</script>
 				<command></command>
 				<packageName></packageName>
 				<regex>^map ignore(?: (.*))?$</regex>
+			</Alias>
+                        <Alias isActive="yes" isFolder="no">
+				<name>Set Move Method Alias</name>
+				<script>
+if matches[2] then
+  map.make_move_method(matches[2])
+else
+  display(map.save.move_methods)
+end</script>
+				<command></command>
+				<packageName></packageName>
+				<regex>^map movemethod(?: (.*))?$</regex>
 			</Alias>
 			<Alias isActive="yes" isFolder="no">
 				<name>Map Debug Alias</name>
@@ -663,7 +656,7 @@ raiseEvent("sysSpeedwalkStopped")</script>
 			<script>-- Jor'Mox's Generic Map Script
 -- the script self-updates, changing this value will bring an update to all installations
 -- make sure versions.lua has the latest version in it
-local version = "2.0.24"
+local version = "2.0.25"
 
     -- look into options for non-standard door usage for speedwalk
     -- come up with aliases to set translations and custom exits, add appropriate help info
@@ -705,6 +698,7 @@ map.help = {[[
             your prompt, uses Lua string-library patterns
         &lt;link: ignore&gt;map ignore&lt;/link&gt; - Provides a specific pattern for the script to ignore,
             uses Lua string-library patterns
+        &lt;link: movemethod&gt;map movemethod&lt;/link&gt; - Adds a movement method for the script to look for when mapping.
         &lt;link: debug&gt;map debug&lt;/link&gt; - Toggles on debug mode, in which extra messages are shown
             with the intent of assisting in troubleshooting getting the
             script setup
@@ -917,6 +911,18 @@ map.help.ignore = [[
 
         If the given pattern is already in the list of ignore patterns, that
         pattern will be removed from the list.
+]]
+map.help.movemethod = [[
+    &lt;cyan&gt;Move Method&lt;reset&gt;
+        syntax: &lt;yellow&gt;map movemethod &lt;movement word&gt;&lt;reset&gt;
+
+        This command will add a movement method for the script to look for
+        when moving between rooms. If your game has methods such as "walk north",
+        "swim south" or similar, add "walk" or "swim" as necessary. For single
+        room movement only.
+
+        If the given method is already in the list of movement methods, that
+        method will be removed from the list.
 ]]
 map.help.areas = [[
     &lt;cyan&gt;Map Areas&lt;reset&gt;
@@ -1269,6 +1275,7 @@ map.save = map.save or {}
 map.save.recall = map.save.recall or {}
 map.save.prompt_pattern = map.save.prompt_pattern or {}
 map.save.ignore_patterns = map.save.ignore_patterns or {}
+map.save.move_methods = map.save.move_methods or {}
 
 local oldstring = string
 local string = utf8
@@ -1427,6 +1434,7 @@ local function config()
     end
     saves.prompt_pattern = saves.prompt_pattern or {}
     saves.ignore_patterns = saves.ignore_patterns or {}
+    saves.move_methods = saves.move_methods or {}
     saves.recall = saves.recall or {}
     map.save = saves
 
@@ -2012,6 +2020,13 @@ local function capture_move_cmd(dir,priority)
             map.set_door(door,"","")
         end
     end
+    for i,v in ipairs(map.save.move_methods) do
+    	local str = string.match(dir, v .. " (%a+)")
+    	if str then 
+    		dir = str
+    		break
+    	end
+    end
     local portal = string.match(dir,"enter (%a+)")
     if map.mapping and portal then
         local portals = getSpecialExitsSwap(map.currentRoom)
@@ -2460,7 +2475,7 @@ function map.find_me(name, exits, dir, manual)
     -- tries to locate the player using the current room name and exits, and if provided, direction of movement
     -- if direction of movement is given, narrows down possibilities using previous room info
     if move ~= "recall" then move_queue = {} end
-    -- find from room hash id
+    -- find from room hash id - map.find_me(nil, nil, nil, false)
     if map.prompt.hash then
         local room = getRoomIDbyHash(map.prompt.hash)
         if room &gt; 0 then
@@ -2468,7 +2483,7 @@ function map.find_me(name, exits, dir, manual)
             map.echo("Room found, ID: " .. room, true)
             return
         else
-            map.echo("Room not found in map database!", false, true)
+            map.echo("Room not found in map database!", not manual, true)
             return
         end
     end
@@ -2524,11 +2539,7 @@ function map.find_me(name, exits, dir, manual)
         end
         find_portal = false
     elseif table.is_empty(match_IDs) then
-        if not manual then
-            map.echo("Room not found in map database", true, true)
-        else
-            map.echo("Room not found in map database", false, true)
-        end
+        map.echo("Room not found in map database", not manual, true)
     end
 end
 
@@ -2758,6 +2769,18 @@ function map.make_ignore_pattern(str)
     else
         table.remove(map.save.ignore_patterns, table.index_of(map.save.ignore_patterns, str))
         map.echo("Ignore pattern removed: " .. str)
+    end
+    table.save(profilePath .. "/map downloads/map_save.dat",map.save)
+end
+
+function map.make_move_method(str)
+    map.save.move_methods = map.save.move_methods or {}
+    if not table.contains(map.save.move_methods,str) then
+        table.insert(map.save.move_methods,str)
+        map.echo("Move method added: " .. str)
+    else
+        table.remove(map.save.move_methods, table.index_of(map.save.move_methods, str))
+        map.echo("Move method removed: " .. str)
     end
     table.save(profilePath .. "/map downloads/map_save.dat",map.save)
 end
