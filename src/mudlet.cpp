@@ -4638,7 +4638,8 @@ bool mudlet::desktopInDarkMode()
 
 void mudlet::announce(const QString& text, const QString& processing)
 {
-    mpAnnouncer->announce(text, processing);
+    QTextEdit convertor(text);
+    mpAnnouncer->announce(convertor.toPlainText(), processing);
 }
 
 void mudlet::onlyShowProfiles(const QStringList& predefinedProfiles)
