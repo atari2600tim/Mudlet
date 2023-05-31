@@ -21,10 +21,8 @@
   <a href="https://www.codefactor.io/repository/github/mudlet/mudlet">
     <img src="https://www.codefactor.io/repository/github/mudlet/mudlet/badge" alt="CodeFactor" />
   </a>
-  <br>
-  <sup><b>Windows:</b></sup>&nbsp;<a href="http://mudlet.org/download/" rel="nofollow"><img src="https://ci.appveyor.com/api/projects/status/31fqq844br6g6i40/branch/development?svg=true" alt="AppVeyor (Windows) CI Build status" style="max-width:100%;">
-  </a>
-  <sup><b>Linux &amp; MacOS:</b></sup>&nbsp;<a href="http://mudlet.org/download/" rel="nofollow"><img src="https://travis-ci.org/Mudlet/Mudlet.svg?branch=development" alt="Travis (Linux &amp; MacOs) CI Build status" style="max-width:100%;">
+  <a href="https://console.algora.io/org/Mudlet/bounties?status=open">
+    <img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fconsole.algora.io%2Fapi%2Fshields%2FMudlet%2Fbounties%3Fstatus%3Dopen"/>
   </a>
 </p>
 
@@ -87,7 +85,7 @@ We believe in making Mudlet available to people on all major platforms, and we w
 
 ## Download
 
-Download for free from [mudlet.org](https://www.mudlet.org/download/)
+Download for free from [mudlet.org](https://www.mudlet.org/download/).
 
 ## How To Use
 
@@ -98,6 +96,10 @@ Download for free from [mudlet.org](https://www.mudlet.org/download/)
     1. Enter `Server address` and `Port` of your game (found on the game's website, e.g. `mygame.com` and `2003`)
     1. Pick a `Profile name`
     1. Hit `Connect`
+
+## Compiling
+
+If you'd like to compile Mudlet yourself instead of [downloading](https://www.mudlet.org/download/), you can find instructions to do so [here](https://wiki.mudlet.org/w/Compiling_Mudlet).
 
 ## Vision
 
