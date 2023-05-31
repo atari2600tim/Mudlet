@@ -4,7 +4,7 @@
 /***************************************************************************
  *   Copyright (C) 2008-2013 by Heiko Koehn - KoehnHeiko@googlemail.com    *
  *   Copyright (C) 2014 by Ahmed Charles - acharles@outlook.com            *
- *   Copyright (C) 2015, 2017-2018, 2020, 2022 by Stephen Lyons            *
+ *   Copyright (C) 2015, 2017-2018, 2020, 2022-2023 by Stephen Lyons       *
  *                                               - slysven@virginmedia.com *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -78,6 +78,9 @@ public:
         // The attributes that are currently user settable and what should be
         // consider in HTML generation:
         TestMask = 0x3f,
+        // Has been found in a search operation (currently Main Console only)
+        // and has been given a highlight to indicate that:
+        Found = 0x40,
         // Replaces TCHAR_ECHO 16
         Echo = 0x100
     };
@@ -88,7 +91,7 @@ public:
     // this:
     explicit TChar(TConsole* pC = nullptr);
     // Another non-default constructor:
-    TChar(const QColor& fg, const QColor& bg, const TChar::AttributeFlags flags = TChar::None, const int linkIndex = 0);
+    TChar(const QColor& foreground, const QColor& background, const TChar::AttributeFlags flags = TChar::None, const int linkIndex = 0);
     // User defined copy-constructor:
     TChar(const TChar&);
     // Under the rule of three, because we have a user defined copy-constructor,
@@ -119,6 +122,13 @@ public:
     void deselect() { mIsSelected = false; }
     bool isSelected() const { return mIsSelected; }
     int linkIndex () const { return mLinkIndex; }
+    bool isBold() const { return mFlags & Bold; }
+    bool isItalic() const { return mFlags & Italic; }
+    bool isUnderlined() const { return mFlags & Underline; }
+    bool isOverlined() const { return mFlags & Overline; }
+    bool isStruckOut() const { return mFlags & StrikeOut; }
+    bool isReversed() const { return mFlags & Reverse; }
+    bool isFound() const { return mFlags & Found; }
 
 private:
     QColor mFgColor;
@@ -155,7 +165,7 @@ public:
     QString bufferToHtml(const bool showTimeStamp = false, const int row = -1, const int endColumn = -1, const int startColumn = 0);
     int size() { return static_cast<int>(buffer.size()); }
     bool isEmpty() const { return buffer.size() == 0; }
-    QString& line(int n);
+    QString& line(int lineNumber);
     int find(int line, const QString& what, int pos);
     int wrap(int);
     QStringList split(int line, const QString& splitter);
@@ -173,7 +183,7 @@ public:
     QStringList getEndLines(int);
     void clear();
     QPoint getEndPos();
-    void translateToPlainText(std::string& s, bool isFromServer = false);
+    void translateToPlainText(std::string& incoming, bool isFromServer = false);
     void append(const QString& chunk, int sub_start, int sub_end, const QColor& fg, const QColor& bg, const TChar::AttributeFlags flags = TChar::None, const int linkID = 0);
     // Only the bits within TChar::TestMask are considered for formatting:
     void append(const QString& chunk, const int sub_start, const int sub_end, const TChar format, const int linkID = 0);
@@ -191,6 +201,8 @@ public:
     // It would have been nice to do this with Qt's signals and slots but that
     // is apparently incompatible with using a default constructor - sigh!
     void encodingChanged(const QByteArray &);
+    void clearSearchHighlights();
+
     static int lengthInGraphemes(const QString& text);
 
 
@@ -219,6 +231,7 @@ private:
     bool processUtf8Sequence(const std::string&, bool, size_t, size_t&, bool&);
     bool processGBSequence(const std::string&, bool, bool, size_t, size_t&, bool&);
     bool processBig5Sequence(const std::string&, bool, size_t, size_t&, bool&);
+    bool processEUC_KRSequence(const std::string&, bool, size_t, size_t&, bool&);
     void decodeSGR(const QString&);
     void decodeSGR38(const QStringList&, bool isColonSeparated = true);
     void decodeSGR48(const QStringList&, bool isColonSeparated = true);
@@ -301,7 +314,7 @@ private:
 // Note "inline" is REQUIRED:
 inline QDebug& operator<<(QDebug& debug, const TChar::AttributeFlags& attributes)
 {
-    QDebugStateSaver saver(debug);
+    QDebugStateSaver const saver(debug);
     QString result = QLatin1String("TChar::AttributeFlags(");
     QStringList presentAttributes;
     if (attributes & TChar::Bold) {
