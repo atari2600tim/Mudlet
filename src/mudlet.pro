@@ -74,7 +74,7 @@ lessThan(QT_MAJOR_VERSION, 5)|if(lessThan(QT_MAJOR_VERSION,6):lessThan(QT_MINOR_
 msvc:QMAKE_CXXFLAGS += -MP
 
 # Mac specific flags.
-macx:QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.13
+macx:QMAKE_MACOSX_DEPLOYMENT_TARGET = 11.0
 
 # Used to force an include of winsock2.h BEFORE Qt tries to include winsock.h
 # from windows.h - only needed on Windows builds but we cannot use Q_OS_WIN32
@@ -95,6 +95,29 @@ greaterThan(QT_MAJOR_VERSION, 5) {
 
 TEMPLATE = app
 
+# Define a variable for the Git executable
+GIT_EXECUTABLE = git
+
+# Run the command to get the short SHA1 hash of the current HEAD, UNLESS there
+# is a Git SHA1 in the BRANCH_COMMIT enviromental variable (which has been set
+# by Mudlet's own CI/CB build system. This is to account for the manipulation
+# that happens during a build of a PR on Mudlet's own GitHub repository which
+# combines the PR state with that of the currently development branch such that
+# the HEAD of that branch does not match what git rev-parse HEAD would return:
+BUILD_COMMIT_TEST = $$(BUILD_COMMIT)
+BUILD_COMMIT_TEST = $$lower($$BUILD_COMMIT_TEST)
+!isEmpty( BUILD_COMMIT_TEST ) {
+  # Building a PR in the AppVeyor environment of Mudlet's own repository
+  GIT_SHA1 = $${BUILD_COMMIT_TEST}
+  # Report the above, for debugging purposes:
+  !build_pass:message("Git SHA1 set from the environment: " $${GIT_SHA1})
+} else {
+  GIT_SHA1 = $$system($$GIT_EXECUTABLE rev-parse --short HEAD)
+  # Report the above, for debugging purposes:
+  !build_pass:message("Git SHA1 used: " $${GIT_SHA1})
+}
+
+
 ########################## Version and Build setting ###########################
 # Set the current Mudlet Version, unfortunately the Qt documentation suggests
 # that only a #.#.# form without any other alphanumberic suffixes is required:
@@ -102,15 +125,31 @@ VERSION = 4.17.2
 
 # if you are distributing modified code, it would be useful if you
 # put something distinguishing into the MUDLET_VERSION_BUILD environment
-# variable to make identification of the used version simple
-# the qmake BUILD variable is NOT built-in
+# variable (it should use '-' as the first character) to make identification of
+# the used version simpler
+# Note: the qmake BUILD variable is NOT a built-in one
 BUILD = $$(MUDLET_VERSION_BUILD)
 isEmpty( BUILD ) {
 # Possible values are:
 # "-dev" for the development build
 # "-ptb" for the public test build
 # "" for the release build
-   BUILD = "-dev"
+# A core dev team member setting things up for a release should comment out the
+# following line - as the app-build.txt file must not contain anything (other
+# than whitespace) for a RELEASE build:
+   BUILD = "-dev-"$${GIT_SHA1}
+} else {
+   BUILD = $${BUILD}-$${GIT_SHA1}
+}
+
+# This does append a line-feed to the file which would be problematic if it
+# wasn't trimmed off when read:
+write_file( app-build.txt, BUILD )
+
+isEmpty( BUILD ) {
+    !build_pass:message("Value written to app-build.txt file: {nothing}")
+} else {
+    !build_pass:message("Value written to app-build.txt file: " $${BUILD})
 }
 
 # As the above also modifies the splash screen image (so developers get reminded
@@ -125,7 +164,12 @@ isEmpty( WITH_VS_SCREEN_TEST ) | !equals(WITH_VS_SCREEN_TEST, "NO" ) {
 # Changing BUILD and VERSION values affects: ctelnet.cpp, main.cpp, mudlet.cpp
 # dlgAboutDialog.cpp and TLuaInterpreter.cpp.  It does NOT cause those files to
 # be automatically rebuilt so you will need to 'touch' them...!
-# Use APP_VERSION, APP_BUILD and APP_TARGET defines in the source code if needed.
+# Use APP_VERSION and APP_TARGET defines in the source code if needed.
+# APP_BUILD is going away (it is not currently used in the source code now as
+# Mudlet instead reads it from the resource file) however until the CI/CB system
+# is cleaned up to not use it in any way in the
+# /CI/(travis|appveyor).validate_deployment.(sh|ps1) scripts we probably have to
+# leave it in place:
 DEFINES += APP_VERSION=\\\"$${VERSION}\\\"
 DEFINES += APP_BUILD=\\\"$${BUILD}\\\"
 
@@ -251,6 +295,11 @@ isEmpty( MAIN_BUILD_SYSTEM_TEST ) | !equals( MAIN_BUILD_SYSTEM_TEST, "NO" ) {
 # * Produce all the time the surprise that normally will only occur on the first
 # day of the fourth month of the Gregorian calendar year:
 # DEFINES+=DEBUG_EASTER_EGGS
+#
+# Comment this to not get debugging messages about WILL/WONT/DO/DONT and other
+# commands for suboptions - change the value to 2 to get a bit more detail
+# about the size or nature of the command:
+DEFINES+=DEBUG_TELNET=1
 
 unix:!macx {
 # Distribution packagers would be using PREFIX = /usr but this is accepted
@@ -572,7 +621,9 @@ SOURCES += \
     EAction.cpp \
     exitstreewidget.cpp \
     FontManager.cpp \
+    FileOpenHandler.cpp \
     GifTracker.cpp \
+    GMCPAuthenticator.cpp \
     TrailingWhitespaceMarker.cpp \
     Host.cpp \
     HostManager.cpp \
@@ -582,6 +633,7 @@ SOURCES += \
     main.cpp \
     mapInfoContributorManager.cpp \
     mudlet.cpp \
+    MudletInstanceCoordinator.cpp \
     MxpTag.cpp \
     ScriptUnit.cpp \
     ShortcutsManager.cpp \
@@ -607,6 +659,12 @@ SOURCES += \
     TScrollBox.cpp \
     TLinkStore.cpp \
     TLuaInterpreter.cpp \
+    TLuaInterpreterDiscord.cpp \
+    TLuaInterpreterMapper.cpp \
+    TLuaInterpreterMedia.cpp \
+    TLuaInterpreterMudletObjects.cpp \
+    TLuaInterpreterNetworking.cpp \
+    TLuaInterpreterUI.cpp \
     TMainConsole.cpp \
     TMap.cpp \
     TMapLabel.cpp \
@@ -615,6 +673,7 @@ SOURCES += \
     TMxpElementDefinitionHandler.cpp \
     TMxpElementRegistry.cpp \
     TMxpEntityTagHandler.cpp \
+    TLuaInterpreterTextToSpeech.cpp \
     TMxpFormattingTagsHandler.cpp \
     TMxpColorTagHandler.cpp \
     TMxpCustomElementTagHandler.cpp \
@@ -689,7 +748,9 @@ HEADERS += \
     dlgVarsMainArea.h \
     EAction.h \
     exitstreewidget.h \
+    FileOpenHandler.h \
     GifTracker.h \
+    GMCPAuthenticator.h \
     TrailingWhitespaceMarker.h \
     Host.h \
     HostManager.h \
@@ -698,6 +759,7 @@ HEADERS += \
     LuaInterface.h \
     mapInfoContributorManager.h \
     mudlet.h \
+    MudletInstanceCoordinator.h \
     MxpTag.h \
     pre_guard.h \
     post_guard.h \
@@ -1554,7 +1616,7 @@ win32 {
 }
 
 # This is a list of files that we want to show up in the Qt Creator IDE that are
-# not otherwise used by the project:
+# not otherwise used by the main project:
 OTHER_FILES += \
     ../.appveyor.yml \
     ../.crowdin.yml \
@@ -1602,7 +1664,6 @@ OTHER_FILES += \
     ../CI/qt-silent-install.qs \
     ../CI/travis.after_success.sh \
     ../CI/travis.before_install.sh \
-    ../CI/travis.compile.sh \
     ../CI/travis.install.sh \
     ../CI/travis.linux.after_success.sh \
     ../CI/travis.linux.before_install.sh \
@@ -1618,6 +1679,19 @@ OTHER_FILES += \
     ../docker/docker-compose.override.linux.yml \
     ../docker/docker-compose.yml \
     ../docker/Dockerfile \
+    ../test/CMakeLists.txt \
+    ../test/GUIConsoleTests.mpackage \
+    ../test/TEntityHandlerTest.cpp \
+    ../test/TEntityResolverTest.cpp \
+    ../test/TLinkStoreTest.cpp \
+    ../test/TLuaInterfaceTest.cpp \
+    ../test/TMxpCustomElementTagHandlerTest.cpp \
+    ../test/TMxpEntityTagHandlerTest.cpp \
+    ../test/TMxpFormattingTagsTest.cpp \
+    ../test/TMxpSendTagHandlerTest.cpp \
+    ../test/TMxpStubClient.h \
+    ../test/TMxpTagParserTest.cpp \
+    ../test/TMxpVersionTagTest.cpp \
     mac-deploy.sh \
     mudlet-lua/genDoc.sh \
     mudlet-lua/lua/ldoc.css

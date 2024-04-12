@@ -318,6 +318,7 @@ public slots:
 
 protected:
     void dragEnterEvent(QDragEnterEvent*) override;
+    void dragMoveEvent(QDragMoveEvent*) override;
     void dropEvent(QDropEvent*) override;
     void mouseReleaseEvent(QMouseEvent*) override;
     void mousePressEvent(QMouseEvent*) override;
@@ -344,7 +345,7 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(TConsole::ConsoleType)
 inline QDebug& operator<<(QDebug& debug, const TConsole::ConsoleType& type)
 {
     QString text;
-    QDebugStateSaver const saver(debug);
+    const QDebugStateSaver saver(debug);
     switch (type) {
     case TConsole::UnknownType:           text = qsl("Unknown"); break;
     case TConsole::CentralDebugConsole:   text = qsl("Central Debug Console"); break;

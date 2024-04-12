@@ -107,6 +107,11 @@ dlgPackageExporter::dlgPackageExporter(QWidget *parent, Host* pHost)
     ui->listWidget_addedFiles->installEventFilter(this);
     ui->comboBox_dependencies->installEventFilter(this);
     ui->textEdit_description->installEventFilter(this);
+
+    // default package template - prevent clearing of text upon click
+    dlgPackageExporter* te_parent = static_cast<dlgPackageExporter*>(topLevelWidget());
+    te_parent->mPlainDescription = ui->textEdit_description->toPlainText();
+
     ui->packageList->addItem(tr("update installed package"));
     ui->DependencyList->addItem(tr("add dependencies"));
     ui->packageList->addItems(mpHost->mInstalledPackages);
@@ -631,7 +636,7 @@ QString dlgPackageExporter::copyNewImagesToTmp(const QString& tempPath) const
 // purge images from tmp which are no longer used by the description
 void dlgPackageExporter::cleanupUnusedImages(const QString& tempPath, const QString& plainDescription)
 {
-    static QRegularExpression const imagesInUsePattern(R"(\$packagePath\/\.mudlet\/description_images\/(.+?)\.)");
+    static const QRegularExpression imagesInUsePattern(R"(\$packagePath\/\.mudlet\/description_images\/(.+?)\.)");
     QStringList imagesInUse;
     QRegularExpressionMatchIterator i = imagesInUsePattern.globalMatch(plainDescription);
     while (i.hasNext()) {

@@ -63,6 +63,7 @@ class TEvent;
 class TArea;
 class LuaInterface;
 class TMedia;
+class GMCPAuthenticator;
 class TRoom;
 class TConsole;
 class TMainConsole;
@@ -72,6 +73,7 @@ class dlgIRC;
 class dlgPackageManager;
 class dlgModuleManager;
 class dlgProfilePreferences;
+class cTelnet;
 
 class stopWatch {
     friend class XMLimport;
@@ -125,7 +127,7 @@ private:
 #ifndef QT_NO_DEBUG_STREAM
 inline QDebug& operator<<(QDebug& debug, const stopWatch& stopwatch)
 {
-    QDebugStateSaver const saver(debug);
+    const QDebugStateSaver saver(debug);
     Q_UNUSED(saver);
     debug.nospace() << qsl("stopwatch(mIsRunning: %1 mInitialised: %2 mIsPersistent: %3 mEffectiveStartDateTime: %4 mElapsedTime: %5)")
                        .arg((stopwatch.running() ? QLatin1String("true") : QLatin1String("false")),
@@ -442,8 +444,10 @@ public:
     QString mCommandSeparator;
     bool mEnableGMCP;
     bool mEnableMSSP;
-    bool mEnableMSP;
     bool mEnableMSDP;
+    bool mEnableMSP;
+    bool mEnableMTTS = true;
+    bool mEnableMNES = false;
     bool mServerMXPenabled;
     bool mAskTlsAvailable;
     int mMSSPTlsPort;
@@ -482,6 +486,7 @@ public:
     dlgTriggerEditor* mpEditorDialog;
     QScopedPointer<TMap> mpMap;
     QScopedPointer<TMedia> mpMedia;
+    QScopedPointer<GMCPAuthenticator> mpAuth;
     dlgNotepad* mpNotePad;
 
     // This is set when we want commands we typed to be shown on the main
@@ -650,6 +655,7 @@ public:
     bool mMapperShowRoomBorders;
     bool mFORCE_MXP_NEGOTIATION_OFF;
     bool mFORCE_CHARSET_NEGOTIATION_OFF;
+    bool mForceNewEnvironNegotiationOff = false;
     QSet<QChar> mDoubleClickIgnore;
     QPointer<QDockWidget> mpDockableMapWidget;
     bool mEnableTextAnalyzer;
@@ -679,6 +685,7 @@ public:
     bool mTutorialForSplitscreenScrollbackAlreadyShown = false;
 
     bool mAnnounceIncomingText = true;
+    bool mAdvertiseScreenReader = false;
     enum class BlankLineBehaviour {
         Show,
         Hide,
