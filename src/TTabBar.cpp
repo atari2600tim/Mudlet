@@ -148,7 +148,7 @@ void TTabBar::removeTab(int index)
 
 void TTabBar::removeTab(const QString& tabName)
 {
-    int index = tabIndex(tabName);
+    const int index = tabIndex(tabName);
     if (index > -1) {
         setTabBold(index, false);
         setTabItalic(index, false);
@@ -169,16 +169,16 @@ QStringList TTabBar::tabNames() const
 
 void TTabBar::applyPrefixToDisplayedText(const QString& tabName, const QString& prefix)
 {
-    int index = tabIndex(tabName);
+    const int index = tabIndex(tabName);
     if (index > -1) {
-        QTabBar::setTabText(index, QStringLiteral("%1%2").arg(prefix, tabData(index).toString()));
+        QTabBar::setTabText(index, qsl("%1%2").arg(prefix, tabData(index).toString()));
     }
 }
 
 void TTabBar::applyPrefixToDisplayedText(int index, const QString& prefix)
 {
     if (index > -1) {
-        QTabBar::setTabText(index, QStringLiteral("%1%2").arg(prefix, tabData(index).toString()));
+        QTabBar::setTabText(index, qsl("%1%2").arg(prefix, tabData(index).toString()));
     }
 }
 

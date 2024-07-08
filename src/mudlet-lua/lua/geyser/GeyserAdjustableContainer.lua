@@ -1,20 +1,15 @@
---Adjustable Container
---Just use it like a normal Geyser Container with some extras like:
---moveable, adjustable size, attach to borders, minimizeable, save/load...
---right click on top border for menu
---Inspired heavily by Adjustable Label (by Jor'Mox ) and EMCO (by demonnic )
---by Edru 2020
+--- Just like a normal container, only adjustable.
+-- Just use it like a normal Geyser Container with some extras like:
+-- moveable, adjustable size, attach to borders, minimizeable, save/load.
+-- Right click on top border for menu.<br/>
+-- Inspired heavily by Adjustable Label (by Jor'Mox) and EMCO (by demonnic)
+-- <br/>See: <a href="https://wiki.mudlet.org/w/Manual:Geyser#Adjustable.Container">Mudlet Manual</a>
+-- @author guy
+-- @author Edru
+-- @module Adjustable.Container
 
 Adjustable = Adjustable or {}
 
---------------------------------------
---                                  --
--- The Geyser Layout Manager by guy --
--- Adjustable Container by Edru     --
---                                  --
---------------------------------------
--- Adjustable Container
--- @module AdjustableContainer
 Adjustable.Container = Adjustable.Container or Geyser.Container:new({name = "AdjustableContainerClass"})
 
 local adjustInfo = {}
@@ -172,10 +167,14 @@ function Adjustable.Container:onMove (label, event)
         end
         local dx, dy = adjustInfo.x - x, adjustInfo.y - y
         local max, min = math.max, math.min
+        local hasScrollBox = self.windowname and Geyser.parentWindows and Geyser.parentWindows[self.windowname] and Geyser.parentWindows[self.windowname].type == "scrollBox"
         if adjustInfo.move and not self.connectedContainers then
             label:setCursor("ClosedHand")
             local tx, ty = max(0,x1-dx), max(0,y1-dy)
-            tx, ty = min(tx, winw - w), min(ty, winh - h)
+            -- get rid of move/size limits when in scrollbox (as it is scrollable)
+            if not(hasScrollBox) then
+                tx, ty = min(tx, winw - w), min(ty, winh - h)
+            end
             tx = make_percent(tx/winw)
             ty = make_percent(ty/winh)
             self:move(tx, ty)
@@ -199,8 +198,10 @@ function Adjustable.Container:onMove (label, event)
                 tw = w2
             end
             tx, ty, tw, th = max(0,tx), max(0,ty), max(10,tw), max(10,th)
-            tw, th = min(tw, winw), min(th, winh)
-            tx, ty = min(tx, winw-tw), min(ty, winh-th)
+            if not(hasScrollBox) then
+                tw, th = min(tw, winw), min(th, winh)
+                tx, ty = min(tx, winw-tw), min(ty, winh-th)
+            end
             tx = make_percent(tx/winw)
             ty = make_percent(ty/winh)
             self:move(tx, ty)
@@ -782,12 +783,12 @@ function Adjustable.Container:load(slot, dir)
 
     mytable.windowname = mytable.windowname or "main"
     
-    -- send Adjustable Container to a UserWindow if saved there
+    -- send Adjustable Container to a UserWindow/ScrollBox if saved there
     if mytable.windowname ~= self.windowname then
         if mytable.windowname == "main" then
             self:changeContainer(Geyser)
         else
-            self:changeContainer(Geyser.windowList[mytable.windowname.."Container"].windowList[mytable.windowname])
+            self:changeContainer(Geyser.parentWindows[mytable.windowname])
         end
     end
 
@@ -806,6 +807,17 @@ function Adjustable.Container:load(slot, dir)
         if self.minimized == true then self.Inside:hide() self:resize(nil, self.buttonsize + 10) else self.Inside:show() end
         self.origh = mytable.origh
     end
+
+    if mytable.auto_hidden or mytable.hidden then
+        self:hide()
+        if not mytable.hidden then
+            self.hidden = false
+            self.auto_hidden = true
+        end
+    else
+        self:show()
+    end
+
     self:detach()
     if mytable.attached then
         self:attachToBorder(mytable.attached) 
@@ -819,12 +831,6 @@ function Adjustable.Container:load(slot, dir)
         for k in pairs(self.connectedToBorder) do
             self:connectToBorder(k)
         end
-    end
-    if mytable.auto_hidden or mytable.hidden then
-        self:hide()
-        if not mytable.hidden then self.hidden = false self.auto_hidden = true end
-    else
-        self:show()
     end
     self:adjustConnectedContainers()
     return true
@@ -1057,12 +1063,11 @@ function Adjustable.Container:new(cons,container)
 
     me.adjLabelstyle = me.adjLabelstyle or [[
     background-color: rgba(0,0,0,100%);
-    border: 4px double green;
-    border-radius: 4px;]]
+    border: 2px groove white;]]
     me.menuStyleMode = "light"
     me.buttonstyle= me.buttonstyle or [[
-    QLabel{ border-radius: 7px; background-color: rgba(255,30,30,100%);}
-    QLabel::hover{ background-color: rgba(255,0,0,50%);}
+    QLabel{ border-color: rgba(255,255,255,100%); background-color: rgba(0,0,0,100%); }
+    QLabel::hover{ background-color: rgba(160,160,160,50%); }
     ]]
 
     me:createContainers()
@@ -1100,7 +1105,7 @@ function Adjustable.Container:new(cons,container)
     me.minimizeLabel:setClickCallback("Adjustable.Container.onClickMin", me)
     me.attLabel:setOnEnter("Adjustable.Container.onEnterAtt", me)
     me.goInside = true
-    me.titleTxtColor = me.titleTxtColor or "green"
+    me.titleTxtColor = me.titleTxtColor or "grey"
     me.titleText = me.titleText or me.name.." - Adjustable Container"
     me:setTitle()
     me.lockStyle = me.lockStyle or "standard"

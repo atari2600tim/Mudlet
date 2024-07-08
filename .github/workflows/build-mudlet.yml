@@ -5,6 +5,11 @@ on:
     tags: [Mudlet-*]
   pull_request:
   workflow_dispatch:
+    inputs:
+      scheduled:
+        description: 'Imitate a scheduled build'
+        required: false
+        default: 'false'
   schedule:
     - cron: '0 2 * * *'
 
@@ -12,15 +17,17 @@ jobs:
   compile-mudlet:
     name: ${{matrix.buildname}}
     runs-on: ${{matrix.os}}
+    if: ${{ github.repository_owner == 'Mudlet' }}
     strategy:
       fail-fast: false
       matrix:
         include:
           # oldest OS supported for maximum compatibility of built AppImage
-          - os: ubuntu-18.04
+          - os: ubuntu-20.04
             buildname: 'ubuntu / gcc / lua tests'
             triplet: x64-linux
             compiler: gcc_64
+            gcc_compiler_version: 8
             qt: '5.14.2'
             deploy: 'deploy'
             run_tests: 'true'
@@ -28,55 +35,37 @@ jobs:
             buildname: 'ubuntu / clang'
             triplet: x64-linux
             compiler: clang_64
+            # We still need a gcc for some sub-stages - and it ain't always the same one:
+            gcc_compiler_version: 9
             qt: '5.14.2'
-          - os: ubuntu-latest
-            buildname: 'ubuntu / qt 5.11'
-            triplet: x64-linux
-            compiler: gcc_64
-            qt: '5.11.0'
-          - os: macos-10.15
-            buildname: 'macos / c++ tests'
+          - os: macos-12
+            buildname: 'macos / c++, lua tests'
             triplet: x64-osx
             compiler: clang_64
             qt: '5.14.2'
             deploy: 'deploy'
-          - os: windows-2019
-            buildname: 'windows'
-            triplet: x64-mingw-dynamic
-            # compiler: flag not used in windows pipeline
-            qt: '5.14.2'
+            run_tests: 'true'
 
     env:
       BOOST_ROOT: ${{github.workspace}}/3rdparty/boost
-      BOOST_URL: https://sourceforge.net/projects/boost/files/boost/1.72.0/boost_1_72_0.tar.bz2/download
-
+      BOOST_URL: https://sourceforge.net/projects/boost/files/boost/1.83.0/boost_1_83_0.tar.bz2/download
 
     steps:
     - name: Checkout Mudlet source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         submodules: true
         fetch-depth: 0
 
-    - name: Restore Qt cache
-      uses: actions/cache@v2.1.6
-      id: cache-qt
-      with:
-        path: ${{runner.workspace}}/Qt/${{matrix.qt}}
-        key: ${{matrix.os}}-qt-${{matrix.qt}}-cache
-
     - name: Install Qt
-      uses: jurplel/install-qt-action@v2
+      uses: jurplel/install-qt-action@v4
       with:
         version: ${{matrix.qt}}
         dir: ${{runner.workspace}}
-        arch: win64_mingw73 # this key is relevant only for windows
-        cached: ${{steps.cache-qt.outputs.cache-hit}}
-        aqtversion: '==1.1.2'
-
+        cache: true
 
     - name: Restore Boost cache
-      uses: actions/cache@v2.1.6
+      uses: actions/cache@v4
       id: cache-boost
       with:
         path: ${{env.BOOST_ROOT}}
@@ -110,7 +99,13 @@ jobs:
         HOMEBREW_NO_INSTALL_CLEANUP: "ON"
       run: |
         # dependencies needed for vcpkg specifically
-        brew install automake autoconf
+        brew install automake autoconf pkg-config
+
+    - name: (Linux) Install non-vcpkg dependencies (1/2)
+      if: runner.os == 'Linux'
+      run: |
+        # gettext is needed for vcpkg
+        sudo apt-get install gettext -y
 
     - name: Restore from cache and run vcpkg
       uses: lukka/run-vcpkg@v7
@@ -129,10 +124,8 @@ jobs:
         HOMEBREW_NO_BOTTLE_SOURCE_FALLBACK: "ON"
         HOMEBREW_NO_INSTALL_CLEANUP: "ON"
       run: |
-        # add new tap to brew for installing gon
-        brew tap mitchellh/gon
         # these aren't available or don't work well in vcpkg
-        brew install pkg-config libzzip libzip ccache luarocks expect mitchellh/gon/gon
+        brew install libzzip libzip ccache luarocks expect mitchellh/gon/gon
 
         echo "/usr/local/opt/ccache/libexec" >> $GITHUB_PATH
         echo "CCACHE_DIR=${{runner.workspace}}/ccache" >> $GITHUB_ENV
@@ -155,9 +148,22 @@ jobs:
         echo "LUA_CPATH=$LUA_CPATH" >> $GITHUB_ENV
 
         # Use latest available XCode
-        echo "DEVELOPER_DIR=/Applications/Xcode_12.4.app/Contents/Developer" >> $GITHUB_ENV
+        echo "DEVELOPER_DIR=/Applications/Xcode_14.2.app/Contents/Developer" >> $GITHUB_ENV
 
-    - name: (Linux) Install non-vcpkg dependencies
+      # though we vcpkg installs Lua for us, the way it arranges directories is not compatible with Luarocks,
+      # so install it in a format that works
+    - name: (Linux) Install Lua
+      uses: leafo/gh-actions-lua@v10
+      if: runner.os == 'Linux'
+      with:
+        luaVersion: "5.1.5"
+        buildCache: false
+
+    - name: (Linux) Install latest Luarocks
+      uses: leafo/gh-actions-luarocks@v4
+      if: runner.os == 'Linux'
+
+    - name: (Linux) Install non-vcpkg dependencies (2/2)
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
@@ -165,14 +171,14 @@ jobs:
         # Install from vcpkg everything we can for cross-platform consistency
         # If not available, use other methods
         # imagemagick is for the desktop screenshot
-        sudo apt-get install ccache pkg-config pcregrep luarocks expect libzip-dev libglu1-mesa-dev libpulse-dev g++-7 \
+        sudo apt-get install ccache pkg-config pcregrep expect libzip-dev libglu1-mesa-dev libpulse-dev g++-${{matrix.gcc_compiler_version}} \
           libxkbcommon-x11-0 imagemagick -y
 
         # switch to GCC that supports C++17 while retaining support for older OS's
-        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 7
-        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 7
-        sudo update-alternatives --set gcc /usr/bin/gcc-7
-        sudo update-alternatives --set g++ /usr/bin/g++-7
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${{matrix.gcc_compiler_version}} ${{matrix.gcc_compiler_version}}
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${{matrix.gcc_compiler_version}} ${{matrix.gcc_compiler_version}}
+        sudo update-alternatives --set gcc /usr/bin/gcc-${{matrix.gcc_compiler_version}}
+        sudo update-alternatives --set g++ /usr/bin/g++-${{matrix.gcc_compiler_version}}
 
         echo "CCACHE_DIR=${{runner.workspace}}/ccache" >> $GITHUB_ENV
 
@@ -191,57 +197,41 @@ jobs:
         echo "LUA_PATH=$LUA_PATH" >> $GITHUB_ENV
         echo "LUA_CPATH=$LUA_CPATH" >> $GITHUB_ENV
 
-    - name: (Windows) Install non-vcpkg dependencies
-      if: runner.os == 'Windows'
-      shell: powershell
-      run: |
-        # Install dependencies not available on machine
-        $env:WORKING_BASE_DIR = "${{runner.workspace}}\src"
-        $env:MINGW_BASE_DIR = "${{runner.workspace}}\mingw73_64"
-        echo "MINGW_BASE_DIR=$env:MINGW_BASE_DIR" >> $env:GITHUB_ENV
-        . ${{github.workspace}}\CI\appveyor.functions.ps1
-
-        # Libzip install complains when \bin is missing
-        New-Item -ItemType Directory -Path "$env:MINGW_BASE_DIR\bin"
-
-        SetQtBaseDir "$env:WORKING_BASE_DIR\verbose_output.log"
-        SetMingwBaseDir "$env:WORKING_BASE_DIR\verbose_output.log"
-        SetLuarocksPath "$env:WORKING_BASE_DIR\verbose_output.log"
-        $NoShPath = filterPathForSh
-
-        CheckAndInstallZlib
-        CheckAndInstallLibzip
-
-    - name: (Linux Clang) change compiler
+    - name: (Linux Clang) change compiler & disable optional components
       if: runner.os == 'Linux' && matrix.compiler == 'clang_64'
       run: |
          echo "CXX=clang++" >> $GITHUB_ENV
          echo "CC=clang" >> $GITHUB_ENV
+         echo "WITH_UPDATER=no" >> $GITHUB_ENV
+         echo "WITH_3DMAPPER=no" >> $GITHUB_ENV
+         echo "WITH_FONTS=no" >> $GITHUB_ENV
 
-    - name: (Qt 5.11) disable optional components
-      if: matrix.qt == '5.11.0'
-      run: |
-        echo "WITH_UPDATER=no" >> $GITHUB_ENV
-        echo "WITH_3DMAPPER=no" >> $GITHUB_ENV
-        echo "WITH_FONTS=no" >> $GITHUB_ENV
-
-    - name: (Linux/macOS) restore ccache
-      uses: pat-s/always-upload-cache@v2.1.5
+    - name: restore ccache
+      uses: actions/cache@v4
       with:
         path: ${{runner.workspace}}/ccache
         key: ccache-${{matrix.os}}-${{matrix.compiler}}-${{matrix.qt}}-${{ github.sha }}
         restore-keys: ccache-${{matrix.os}}-${{matrix.compiler}}-${{matrix.qt}}
-      if: matrix.os != 'windows-latest'
+        save-always: true
 
-    - name: (Linux/macOS) Set build info
-      if: runner.os == 'Linux' || runner.os == 'macOS'
+    - name: (Linux) Set build info
+      if: runner.os == 'Linux'
       run: |
+        sudo apt-get -y install pcregrep
         ${{github.workspace}}/CI/travis.validate_deployment.sh
         ${{github.workspace}}/CI/travis.set-build-info.sh
 
-    - name: (Linux/macOS) check ccache stats prior to build
-      if: runner.os == 'Linux' || runner.os == 'macOS'
-      run: ccache --show-stats
+    - name: (macOS) Set build info
+      if: runner.os == 'macOS'
+      run: |
+        brew install pcre
+        ${{github.workspace}}/CI/travis.validate_deployment.sh
+        ${{github.workspace}}/CI/travis.set-build-info.sh
+        # remove it as it breaks packaging down the line: https://github.com/Mudlet/Mudlet/issues/6668
+        brew uninstall pcre
+
+    - name: check ccache stats prior to build
+      run: ccache --zero-stats --show-stats
 
     - name: Build Mudlet
       uses: lukka/run-cmake@v3
@@ -261,13 +251,12 @@ jobs:
 
     - name: Upload GitHub Actions artifact of vcpkg build logs
       if: failure()
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: vcpkg-logs-${{ runner.os }}
         path: ${{ github.workspace }}/vcpkg/buildtrees/**/*.log
 
-    - name: (Linux/macOS) check ccache stats post build
-      if: runner.os == 'Linux' || runner.os == 'macOS'
+    - name: check ccache stats post build
       run: ccache --show-stats
 
     - name: (macOS) Run C++ tests
@@ -275,15 +264,14 @@ jobs:
       working-directory: '${{runner.workspace}}/b/ninja'
       run: ctest --output-on-failure
 
-    - name: (Linux/macOS) restore Luarocks for packaging
-      uses: actions/cache@v2.1.6
+    - name: restore Luarocks for packaging
+      uses: actions/cache@v4
       with:
         path: $HOME/.luarocks
         key: ccache-${{matrix.os}}-${{matrix.compiler}}-${{hashFiles('.github/workflows/build-mudlet.yml')}}
         restore-keys: ccache-${{matrix.os}}-${{matrix.compiler}}-
-      if: runner.os == 'Linux' || runner.os == 'macOS'
 
-    - name: (Linux/macOS) install dependencies for packaging/tests
+    - name: install dependencies for packaging/tests
       if: matrix.deploy == 'deploy' || matrix.run_tests == 'true'
       run: |
         export PATH="${{env.VCPKG_ROOT}}/installed/${{matrix.triplet}}/tools/lua:$PATH"
@@ -299,7 +287,7 @@ jobs:
         run-luarocks install --local luautf8
         run-luarocks install --local lua-zip
         run-luarocks install SQLITE_INCDIR="${{env.VCPKG_ROOT}}/installed/${{matrix.triplet}}/include" --local LuaSQL-SQLite3
-        run-luarocks install --local lrexlib-pcre
+        run-luarocks install PCRE_INCDIR="${{env.VCPKG_ROOT}}/installed/${{matrix.triplet}}/include" --local lrexlib-pcre
 
         # CI changelog generation dependencies
         run-luarocks install --local argparse
@@ -317,12 +305,19 @@ jobs:
         RUNNER_OS: ${{runner.os}}
         DEPLOY: ${{matrix.deploy}}
 
-    - name: (Linux/macOS) package Mudlet
+    - name: add ssh-agent for tag deployment
+      if: (runner.os == 'Linux' || runner.os == 'macOS') && matrix.deploy == 'deploy' && startsWith(github.ref, 'refs/tags/Mudlet-')
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{secrets.UPLOAD_PRIVATEKEY}}
+
+    - name: package Mudlet
       if: (runner.os == 'Linux' || runner.os == 'macOS') && matrix.deploy == 'deploy'
       run: ${{github.workspace}}/CI/travis.after_success.sh
       env:
         BUILD_FOLDER: ${{runner.workspace}}/b/ninja
         RUNNER_OS: ${{runner.os}}
+        X_WP_DOWNLOAD_TOKEN: ${{secrets.X_WP_DOWNLOAD_TOKEN}}
         DEPLOY: ${{matrix.deploy}}
         DBLSQD_USER: ${{secrets.DBLSQD_USER}}
         DBLSQD_PASS: ${{secrets.DBLSQD_PASS}}
@@ -332,7 +327,7 @@ jobs:
         AC_PASSWORD: ${{secrets.APPLE_PASSWORD}}
 
     - name: Upload packaged Mudlet
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       if: env.UPLOAD_FILENAME
       with:
         name: ${{env.UPLOAD_FILENAME}}
@@ -344,17 +339,36 @@ jobs:
       shell: bash
 
     # we need to be in the right place for LuaGlobals.lua to load
-    - name: Prep binary for running tests
-      if: matrix.run_tests == 'true'
+    - name: (Linux) Prep binary for running tests
+      if: matrix.run_tests == 'true' && runner.os =='Linux'
+      # macOS binary is in ${{runner.workspace}}/b/ninja/${{env.UPLOAD_FILENAME}}/Contents/MacOS
       run: cp ${{runner.workspace}}/b/ninja/src/mudlet ${{github.workspace}}/src
       shell: bash
 
-    - name: Run Lua tests
-      if: matrix.run_tests == 'true'
+    - name: (macOS) Prep binary for running tests
+      if: matrix.run_tests == 'true' && runner.os == 'macOS'
+      run: |
+        cp -r ${{runner.workspace}}/b/ninja/${{env.UPLOAD_FILENAME}}.app ~/Desktop
+        cd ~/Desktop
+        sudo codesign --remove-signature ${{env.UPLOAD_FILENAME}}.app
+      shell: bash
+
+    - name: (Linux) Run Lua tests
+      if: matrix.run_tests == 'true' && runner.os == 'Linux'
       timeout-minutes: 5
-      uses: GabrielBB/xvfb-action@v1.5
+      uses: GabrielBB/xvfb-action@v1.6
       with:
         run: ${{github.workspace}}/src/mudlet --profile "Mudlet self-test" --mirror
+      env:
+        AUTORUN_BUSTED_TESTS: 'true'
+        TESTS_DIRECTORY: ${{github.workspace}}/src/mudlet-lua/tests
+        QUIT_MUDLET_AFTER_TESTS: 'true'
+
+    - name: (macOS) Run Lua tests
+      if: matrix.run_tests == 'true' && runner.os == 'macOS'
+      timeout-minutes: 5
+      shell: bash
+      run: ~/Desktop/${{env.UPLOAD_FILENAME}}.app/Contents/MacOS/mudlet --profile "Mudlet self-test" --mirror
       env:
         AUTORUN_BUSTED_TESTS: 'true'
         TESTS_DIRECTORY: ${{github.workspace}}/src/mudlet-lua/tests
@@ -365,23 +379,6 @@ jobs:
       run: |
         if [ -e /tmp/busted-tests-failed ]
         then
-          echo "Lua tests failed - see the action above for detailed output."
+          echo "Lua tests failed - see the action called 'Run Lua tests' above for detailed output."
           exit 1
         fi
-
-    - name: (windows) Show relevant setup logs
-      if: failure() && runner.os == 'Windows'
-      run: |
-        $env:WORKING_BASE_DIR = "${{runner.workspace}}\src"
-        if (Test-Path -Path "$env:WORKING_BASE_DIR\stderr.log") {
-          echo "Standard error log from non-vcpkg dependencies: "
-          cat $env:WORKING_BASE_DIR\stderr.log
-        }
-        if (Test-Path -Path "$env:WORKING_BASE_DIR\stdout.log") {
-          echo "Standard output log from non-vcpkg dependencies: "
-          cat $env:WORKING_BASE_DIR\stdout.log
-        }
-        if (Test-Path -Path "${{runner.workspace}}/b/ninja/CMakeFiles/CMakeOutput.log") {
-          echo "CMakeOutput.log: "
-          cat "${{runner.workspace}}/b/ninja/CMakeFiles/CMakeOutput.log"
-        }

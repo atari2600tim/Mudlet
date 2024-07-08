@@ -425,8 +425,9 @@ local speedwalkShow
 --- Stops a speedwalk and clears the walklist
 function stopSpeedwalk()
   local active = pauseSpeedwalk()
-  if active then 
+  if active then
     speedwalkList = {}
+    raiseEvent("sysSpeedwalkStopped")
     return true
   end
   return nil, "stopSpeedwalk(): no active speedwalk found"
@@ -439,6 +440,7 @@ function pauseSpeedwalk()
   if speedwalkTimerID then
     killTimer(speedwalkTimerID)
     speedwalkTimerID = false
+    raiseEvent("sysSpeedwalkPaused")
     return true
   end
   return nil, "pauseSpeedwalk(): no active speedwalk found"
@@ -455,6 +457,7 @@ function resumeSpeedwalk()
     return nil, "resumeSpeedwalk(): attempted to resume a speedwalk but no active speedwalk found"
   end
   speedwalktimer(speedwalkList, speedwalkDelay, speedwalkShow)
+  raiseEvent("sysSpeedwalkResumed")
   return true
 end
 
@@ -467,6 +470,8 @@ function speedwalktimer(walklist, walkdelay, show)
     speedwalkTimerID = tempTimer(walkdelay, function()
       speedwalktimer(walklist, walkdelay, show)
     end)
+  else
+    raiseEvent("sysSpeedwalkFinished")
   end
 end
 
@@ -498,13 +503,15 @@ function speedwalk(dirString, backwards, delay, show)
     ni = "out",
     tuo = "in"
   }
+  raiseEvent("sysSpeedwalkStarted")
   if not backwards then
     for count, direction in string.gmatch(dirString, "([0-9]*)([neswudio][ewnu]?t?)") do
       count = (count == "" and 1 or count)
       for i = 1, count do
         if delay then
           walklist[#walklist + 1] = direction
-        else send(direction, show)
+        else
+          send(direction, show)
         end
       end
     end
@@ -514,7 +521,8 @@ function speedwalk(dirString, backwards, delay, show)
       for i = 1, count do
         if delay then
           walklist[#walklist + 1] = reversedir[direction]
-        else send(reversedir[direction], show)
+        else
+          send(reversedir[direction], show)
         end
       end
     end
@@ -554,6 +562,10 @@ function _comp(a, b)
   return true
 end
 
+--- exposes _comp as compare as it's a global, has been for years, and is also
+--- extremely useful. But documenting it as _comp is inconsistent with the rest
+--- of the API
+compare = _comp
 
 
 --- <b><u>TODO</u></b> phpTable(...) - abuse to: http://richard.warburton.it
@@ -682,6 +694,24 @@ end
 function deleteFull()
   deleteLine()
   tempLineTrigger(1, 1, [[if isPrompt() then deleteLine() end]])
+end
+
+function deleteMultiline(maxLines)
+  local multimatchesSize = table.size(multimatches)
+  if multimatchesSize == 0 then
+    return nil, "does not appear to be run during a multiline trigger match, please try again."
+  end
+  maxLines = maxLines or multimatchesSize
+  local firstMatch = multimatches[1][1]:patternEscape()
+  for i = 1, maxLines do
+    local content = getCurrentLine()
+    deleteLine()
+    if content:find(firstMatch) then
+      return true
+    end
+    moveCursorUp()
+  end
+  return true
 end
 
 function shms(seconds, bool)
@@ -1062,11 +1092,11 @@ end
 local acceptableSuffix = {"xml", "mpackage", "zip", "trigger"}
 
 function verbosePackageInstall(fileName)
-  local installationSuccessful = installPackage(fileName)
+  local ok, err = installPackage(fileName)
   local packageName = string.gsub(fileName, getMudletHomeDir() .. "/", "")
   -- That is all for installing, now to announce the result to the user:
   mudlet.Locale = mudlet.Locale or loadTranslations("Mudlet")
-  if installationSuccessful then
+  if ok then
     local successText = mudlet.Locale.packageInstallSuccess.message
     successText = string.format(successText, packageName)
     local okPrefix = mudlet.Locale.prefixOk.message
@@ -1074,7 +1104,27 @@ function verbosePackageInstall(fileName)
     -- Light Green and Orange-ish; see cTelnet::postMessage for color comparison
   else
     local failureText = mudlet.Locale.packageInstallFail.message
-    failureText = string.format(failureText, packageName)
+    failureText = string.format(failureText, packageName, err)
+    local warnPrefix = mudlet.Locale.prefixWarn.message
+    decho('<0,150,190>' .. warnPrefix .. '<190,150,0>' .. failureText .. '\n')
+    -- Cyan and Orange; see cTelnet::postMessage for color comparison
+  end
+end
+
+function verboseModuleInstall(fileName)
+  local ok, err = installModule(fileName)
+  local moduleName = fileName
+  -- That is all for installing, now to announce the result to the user:
+  mudlet.Locale = mudlet.Locale or loadTranslations("Mudlet")
+  if ok then
+    local successText = mudlet.Locale.moduleInstallSuccess.message
+    successText = string.format(successText, moduleName)
+    local okPrefix = mudlet.Locale.prefixOk.message
+    decho('<0,160,0>' .. okPrefix .. '<190,100,50>' .. successText .. '\n')
+    -- Light Green and Orange-ish; see cTelnet::postMessage for color comparison
+  else
+    local failureText = mudlet.Locale.moduleInstallFail.message
+    failureText = string.format(failureText, moduleName, err)
     local warnPrefix = mudlet.Locale.prefixWarn.message
     decho('<0,150,190>' .. warnPrefix .. '<190,150,0>' .. failureText .. '\n')
     -- Cyan and Orange; see cTelnet::postMessage for color comparison
@@ -1129,7 +1179,11 @@ function packageDrop(event, fileName, suffix)
   if not table.contains(acceptableSuffix, suffix) then
     return
   end
-  verbosePackageInstall(fileName)
+  if holdingModifiers(mudlet.keymodifier.Control) then
+    verboseModuleInstall(fileName)
+  else
+    verbosePackageInstall(fileName)
+  end
 end
 registerAnonymousEventHandler("sysDropEvent", "packageDrop")
 
@@ -1155,4 +1209,73 @@ if not ttsSpeak then --check if ttsSpeak is defined, if not then Mudlet lacks TT
   for _,fn in ipairs(funcs) do
     _G[fn] = function() debugc(string.format("%s: Mudlet was compiled without TTS capabilities", fn)) end
   end
+end
+
+local oldsetConfig = setConfig
+function setConfig(...)
+  local args = {...}
+
+  if type(args[1]) ~= "table" then
+    return oldsetConfig(...)
+  end
+
+  for k,v in pairs(args[1]) do
+    oldsetConfig(k, v)
+  end
+end
+
+local oldgetConfig = getConfig
+function getConfig(...)
+  local args = {...}
+  local result = {}
+
+  if #args == 0 then
+    -- Please sort this list alphabetically (case insensitive) as it helps to follow changes:
+    local list = {
+      "announceIncomingText",
+      "askTlsAvailable",
+      "autoClearInputLine",
+      "blankLinesBehaviour",
+      "boldIsBright",
+      "caretShortcut",
+      "commandLineHistorySaveSize",
+      "compactInputLine",
+      "controlCharacterHandling",
+      "enableGMCP",
+      "enableMNES",
+      "enableMSDP",
+      "enableMSP",
+      "enableMSSP",
+      "enableMTTS",
+      "fixUnnecessaryLinebreaks",
+      "forceNewEnvironNegotiationOff",
+      "inputLineStrictUnixEndings",
+      "logInHTML",
+      "mapExitSize", 
+      "mapperPanelVisible",
+      "mapRoomSize",
+      "mapRoundRooms", 
+      "mapShowRoomBorders",
+      "show3dMapView",
+      "showRoomIdsOnMap",
+      "showSentText",
+      "specialForceCompressionOff", 
+      "specialForceCharsetNegotiationOff",
+      "specialForceGAOff", 
+      "specialForceMxpNegotiationOff", 
+    }
+    for _,v in ipairs(list) do
+      result[v] = oldgetConfig(v)
+    end
+    return result
+  end
+
+  if type(args[1]) == "table" then
+    for _,v in pairs(args[1]) do
+      result[v] = oldgetConfig(v)
+    end
+    return result
+  end
+
+  return oldgetConfig(args[1])
 end

@@ -111,6 +111,16 @@
     </property>
     <addaction name="dactionOptions"/>
     <addaction name="dactionMultiView"/>
+    <addaction name="separator"/>
+    <addaction name="menuMute"/>
+   </widget>
+   <widget class="QMenu" name="menuMute">
+    <property name="title">
+     <string>Mute media</string>
+    </property>
+    <addaction name="dactionMuteMedia"/>
+    <addaction name="dactionMuteAPI"/>
+    <addaction name="dactionMuteGame"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -119,6 +129,7 @@
     <addaction name="dactionHelp"/>
     <addaction name="dactionVideo"/>
     <addaction name="dactionDiscord"/>
+    <addaction name="dactionMudletDiscord"/>
     <addaction name="dactionIRC"/>
     <addaction name="dactionForum"/>
    </widget>
@@ -138,6 +149,8 @@
     <addaction name="separator"/>
     <addaction name="dactionDisconnect"/>
     <addaction name="dactionReconnect"/>
+    <addaction name="separator"/>
+    <addaction name="dactionCloseProfile"/>
    </widget>
    <addaction name="menuGames"/>
    <addaction name="menuEditor"/>
@@ -230,7 +243,7 @@
     <string>Video tutorials</string>
    </property>
    <property name="toolTip">
-    <string>&lt;p&gt;Opens an (on-line) collection of &quot;Educational Mudlet screencasts&quot; in your system web-browser.&lt;/p&gt;</string>
+    <string>&lt;p&gt;Opens an (on-line) collection of "Educational Mudlet screencasts" in your system web-browser.&lt;/p&gt;</string>
    </property>
   </action>
   <action name="dactionReplay">
@@ -311,6 +324,57 @@
     <string comment="Same text is used in 2 places.">&lt;p&gt;Splits the Mudlet screen to show multiple profiles at once; disabled when less than two are loaded.&lt;/p&gt;</string>
    </property>
   </action>
+  <action name="dactionMuteMedia">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Mute all media</string>
+   </property>
+   <property name="toolTip">
+    <string>&lt;p&gt;Mutes all media played.&lt;/p&gt;</string>
+   </property>
+  </action>
+  <action name="dactionMuteAPI">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Mute sounds from Mudlet (Triggers, Scripts, etc.)</string>
+   </property>
+   <property name="toolTip">
+    <string>&lt;p&gt;Mutes media played by the Lua API and scripts.&lt;/p&gt;</string>
+   </property>
+  </action>
+  <action name="dactionMuteGame">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Mute sounds from the game (MCMP, MSP)</string>
+   </property>
+   <property name="toolTip">
+    <string>&lt;p&gt;Mutes media played by the game (MCMP, MSP).&lt;/p&gt;</string>
+   </property>
+  </action>
   <action name="dactionInputLine">
    <property name="checkable">
     <bool>true</bool>
@@ -327,6 +391,17 @@
   </action>
   <action name="dactionDiscord">
    <property name="text">
+    <string>Discord</string>
+   </property>
+   <property name="toolTip">
+    <string>&lt;p&gt;Open a link to Discord.&lt;/p&gt;</string>
+   </property>
+   <property name="visible">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="dactionMudletDiscord">
+   <property name="text">
     <string>Discord help channel</string>
    </property>
    <property name="toolTip">
@@ -342,6 +417,11 @@
    </property>
    <property name="toolTip">
     <string>The public test build gets newer features to you quicker, and you help us find issues in them quicker. Spotted something odd? Let us know asap!</string>
+   </property>
+  </action>
+  <action name="dactionCloseProfile">
+   <property name="text">
+    <string>Close profile</string>
    </property>
   </action>
  </widget>
