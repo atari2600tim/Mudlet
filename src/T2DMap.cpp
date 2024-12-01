@@ -1,6 +1,6 @@
 /***************************************************************************
  *   Copyright (C) 2008-2013 by Heiko Koehn - KoehnHeiko@googlemail.com    *
- *   Copyright (C) 2013-2016, 2018-2023 by Stephen Lyons                   *
+ *   Copyright (C) 2013-2016, 2018-2024 by Stephen Lyons                   *
  *                                               - slysven@virginmedia.com *
  *   Copyright (C) 2014 by Ahmed Charles - acharles@outlook.com            *
  *   Copyright (C) 2021-2022 by Piotr Wilczynski - delwing@gmail.com       *
@@ -1149,7 +1149,7 @@ inline void T2DMap::drawRoom(QPainter& painter,
 void T2DMap::paintEvent(QPaintEvent* e)
 {
     Q_UNUSED(e)
-    if (!mpMap) {
+    if (!mpMap||mpHost.isNull()) {
         return;
     }
     QElapsedTimer renderTimer;
@@ -2064,7 +2064,7 @@ void T2DMap::paintRoomExits(QPainter& painter, QPen& pen, QList<int>& exitList, 
         }
 
         // draw exit stubs
-        for (const int direction : qAsConst(room->exitStubs)) {
+        for (const int direction : std::as_const(room->exitStubs)) {
             if (direction >= DIR_NORTH && direction <= DIR_SOUTHWEST) {
                 // Stubs on non-XY plane exits are handled differently and we
                 // do not support special exit stubs (yet?)
@@ -2389,6 +2389,8 @@ void T2DMap::paintMapInfo(const QElapsedTimer& renderTimer, QPainter& painter, c
                                   .arg(renderTimer.nsecsElapsed() * 1.0e-9, 0, 'f', 3)
                                   .arg(QString::number(mMapCenterX), QString::number(mMapCenterY), QString::number(mMapCenterZ))),
                           infoColor});
+#else
+    Q_UNUSED(renderTimer)
 #endif
 
     if (yOffset > initialYOffset) {
@@ -2893,7 +2895,7 @@ void T2DMap::mouseReleaseEvent(QMouseEvent* event)
             it.next();
             QStringList menuInfo = it.value();
             const QString menuParent = menuInfo[0];
-            if (menuParent == "") { //parentless
+            if (menuParent.isEmpty()) { //parentless
                 popup->addMenu(userMenus[it.key()]);
             } else { //has a parent
                 userMenus[menuParent]->addMenu(userMenus[it.key()]);
@@ -2901,7 +2903,8 @@ void T2DMap::mouseReleaseEvent(QMouseEvent* event)
         }
         //add our actions
         QMapIterator<QString, QStringList> it2(mUserActions);
-        auto mapper = new QSignalMapper(this);
+        auto mapper = new QSignalMapper(popup);
+        
         while (it2.hasNext()) {
             it2.next();
             QStringList actionInfo = it2.value();
@@ -2915,13 +2918,20 @@ void T2DMap::mouseReleaseEvent(QMouseEvent* event)
                 continue;
             }
             mapper->setMapping(action, it2.key());
-            // TODO: QSignalMapper is not compatible with the functor (Qt5)
+            // TODO: QSignalMapper is not completely compatible with the functor
             // style of QObject::connect(...) - it has been declared obsolete
             // and should be replaced with lambda functions to perform what the
             // slot method did...
-            connect(action, SIGNAL(triggered()), mapper, SLOT(map()));
+            connect(action, &QAction::triggered, mapper, qOverload<>(&QSignalMapper::map));
         }
-        connect(mapper, SIGNAL(mapped(QString)), this, SLOT(slot_userAction(QString)));
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+        // In relation to above "TODO" in the meantime we can handle things
+        // by a change to one of a group of newer signals with a specific
+        // signature:
+        connect(mapper, &QSignalMapper::mappedString, this, &T2DMap::slot_userAction);
+#else
+        connect(mapper, qOverload<const QString&>(&QSignalMapper::mapped), this, &T2DMap::slot_userAction);
+#endif
 
         // After all has been added, finally have Qt display the context menu as a whole
         mPopupMenu = true;
@@ -4060,16 +4070,23 @@ void T2DMap::slot_loadMap() {
         return;
     }
 
+    QSettings& settings = *mudlet::getQSettings();
+    QString lastDir = settings.value("lastFileDialogLocation", mudlet::getMudletPath(mudlet::profileHomePath, mpHost->getName())).toString();
+
+
     const QString fileName = QFileDialog::getOpenFileName(
                            this,
                            tr("Load Mudlet map"),
-                           mudlet::getMudletPath(mudlet::profileMapsPath, mpMap->mProfileName),
+                           lastDir,
                            tr("Mudlet map (*.dat);;Xml map data (*.xml);;Any file (*)",
                               // Intentional comment to separate arguments
                               "Do not change extensions (in braces) or the ;;s as they are used programmatically"));
     if (fileName.isEmpty()) {
         return;
     }
+
+    lastDir = QFileInfo(fileName).absolutePath();
+    settings.setValue("lastFileDialogLocation", lastDir);
 
     if (fileName.endsWith(qsl(".xml"), Qt::CaseInsensitive)) {
         mpHost->mpConsole->importMap(fileName);

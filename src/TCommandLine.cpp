@@ -1,7 +1,7 @@
 /***************************************************************************
  *   Copyright (C) 2008-2012 by Heiko Koehn - KoehnHeiko@googlemail.com    *
  *   Copyright (C) 2014 by Ahmed Charles - acharles@outlook.com            *
- *   Copyright (C) 2018-2020, 2022-2023 by Stephen Lyons                   *
+ *   Copyright (C) 2018-2020, 2022-2024 by Stephen Lyons                   *
  *                                               - slysven@virginmedia.com *
  *   Copyright (C) 2023 by Lecker Kebap - Leris@mudlet.org                 *
  *                                                                         *
@@ -27,7 +27,6 @@
 #include "Host.h"
 #include "TConsole.h"
 #include "TMainConsole.h"
-#include "TSplitter.h"
 #include "TTabBar.h"
 #include "TTextEdit.h"
 #include "TEvent.h"
@@ -383,7 +382,13 @@ bool TCommandLine::event(QEvent* event)
 #endif
                 // If EXACTLY Down is pressed without modifiers (special case
                 // for macOs - also sets KeyPad modifier)
-                historyMove(MOVE_DOWN);
+                bool shouldClearInput = historyMove(MOVE_DOWN);
+
+                // If the user has pressed DOWN while in the middle of typing a command
+                // the command line should be cleared
+                if (shouldClearInput) {
+                    clear();
+                }
                 ke->accept();
                 return true;
             }
@@ -1013,12 +1018,12 @@ void TCommandLine::handleTabCompletion(bool direction)
     const QStringList blacklist = tabCompleteBlacklist.values();
     QStringList toDelete;
 
-    for (const QString& wstr : qAsConst(wordList)) {
+    for (const QString& wstr : std::as_const(wordList)) {
         if (blacklist.contains(wstr, Qt::CaseInsensitive)) {
             toDelete += wstr;
         }
     }
-    for (const QString& dstr : qAsConst(toDelete)) {
+    for (const QString& dstr : std::as_const(toDelete)) {
         wordList.removeAll(dstr);
     }
 
@@ -1064,9 +1069,11 @@ void TCommandLine::handleTabCompletion(bool direction)
             if (mTabCompletionCount < 0) {
                 mTabCompletionCount = 0;
             }
+
             const QString proposal = filterList[mTabCompletionCount];
             const QString userWords = mTabCompletionTyped.left(typePosition);
             setPlainText(QString(userWords + proposal));
+            mudlet::self()->announce(proposal);
             moveCursor(QTextCursor::End, QTextCursor::MoveAnchor);
             mTabCompletionOld = toPlainText();
         }
@@ -1084,6 +1091,7 @@ void TCommandLine::handleAutoCompletion()
     QString neu = toPlainText();
     neu.chop(textCursor().selectedText().size());
     setPlainText(neu);
+    mudlet::self()->announce(neu);
     mTabCompletionOld = neu;
     const int oldLength = toPlainText().size();
     if (mAutoCompletionCount >= mHistoryList.size()) {
@@ -1098,6 +1106,7 @@ void TCommandLine::handleAutoCompletion()
             mAutoCompletionCount = i;
             mLastCompletion = mHistoryList[i];
             setPlainText(mHistoryList[i]);
+            mudlet::self()->announce(mHistoryList[i]);
             moveCursor(QTextCursor::Start);
             for (int k = 0; k < oldLength; k++) {
                 moveCursor(QTextCursor::Right, QTextCursor::MoveAnchor);
@@ -1114,11 +1123,16 @@ void TCommandLine::handleAutoCompletion()
 // cursor up/down: turns on autocompletion mode and cycles through all possible matches
 // In case nothing has been typed it cycles through the command history in
 // reverse order compared to cursor down.
+// If the user is currently typing in the command line, a DOWN key will indicate
+// that the input line should be cleared
 
-void TCommandLine::historyMove(MoveDirection direction)
+bool TCommandLine::historyMove(MoveDirection direction)
 {
+    bool shouldClearInput = false;
+    
     if (mHistoryList.empty()) {
-        return;
+        // If the history is empty, we may still want to clear the input line...
+        return true;
     }
     const int shift = (direction == MOVE_UP ? 1 : -1);
     if ((textCursor().selectedText().size() == toPlainText().size()) || (toPlainText().isEmpty()) || !mpHost->mHighlightHistory) {
@@ -1130,16 +1144,23 @@ void TCommandLine::historyMove(MoveDirection direction)
             mHistoryBuffer = 0;
         }
         setPlainText(mHistoryList[mHistoryBuffer]);
+        mudlet::self()->announce(mHistoryList[mHistoryBuffer]);
         if (mpHost->mHighlightHistory) {
             selectAll();
         } else {
             moveCursor(QTextCursor::End);
         }
     } else {
-        mAutoCompletionCount += shift;
-        handleAutoCompletion();
+        if (direction == MOVE_DOWN && !toPlainText().isEmpty()) {
+            shouldClearInput = true;
+        } else {
+            mAutoCompletionCount += shift;
+            handleAutoCompletion();
+        }
     }
     adjustHeight();
+
+    return shouldClearInput;
 }
 
 void TCommandLine::slot_clearSelection(bool yes)
