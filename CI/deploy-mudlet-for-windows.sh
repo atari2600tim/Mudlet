@@ -173,6 +173,7 @@ else
     echo "=== Creating a public test build ==="
     # Squirrel uses Start menu name from the binary, renaming it
     mv "$PACKAGE_DIR/mudlet.exe" "$PACKAGE_DIR/Mudlet PTB.exe"
+    echo "moved mudlet.exe to $PACKAGE_DIR/Mudlet PTB.exe"
     # ensure sha part always starts with a character due to a known issue
     VersionAndSha="${VERSION}-ptb-${BUILD_COMMIT}"
 
@@ -182,9 +183,33 @@ else
     VersionAndSha="$VERSION"
   fi
 
+  echo "VersionAndSha: $VersionAndSha"
   echo "=== Cloning installer project ==="
   git clone https://github.com/Mudlet/installers.git "$GITHUB_WORKSPACE/installers"
   cd "$GITHUB_WORKSPACE/installers/windows" || exit 1
+
+  echo "=== Setting up Java 21 for signing ==="
+  export JAVA_HOME="$(cygpath -u $JAVA_HOME_21_X64)"
+  export PATH="$JAVA_HOME/bin:$PATH"
+
+  if [ -z "${AZURE_ACCESS_TOKEN}" ]; then
+      echo "=== Code signing skipped - no Azure token provided ==="
+  else
+      echo "=== Signing Mudlet and dll files ==="
+      if [[ "$PublicTestBuild" == "true" ]]; then
+          java.exe -jar $GITHUB_WORKSPACE/installers/windows/jsign-7.0-SNAPSHOT.jar --storetype TRUSTEDSIGNING \
+              --keystore eus.codesigning.azure.net \
+              --storepass ${AZURE_ACCESS_TOKEN} \
+              --alias Mudlet/Mudlet \
+              "$PACKAGE_DIR/Mudlet PTB.exe" "$PACKAGE_DIR/**/*.dll"
+      else
+          java.exe -jar $GITHUB_WORKSPACE/installers/windows/jsign-7.0-SNAPSHOT.jar --storetype TRUSTEDSIGNING \
+              --keystore eus.codesigning.azure.net \
+              --storepass ${AZURE_ACCESS_TOKEN} \
+              --alias Mudlet/Mudlet \
+              "$PACKAGE_DIR/Mudlet.exe" "$PACKAGE_DIR/**/*.dll"
+      fi
+  fi
 
   echo "=== Installing Squirrel for Windows ==="
   nuget install squirrel.windows -ExcludeVersion
@@ -224,7 +249,7 @@ else
   # Create NuGet package
   nuget pack "$NuSpec" -Version "$VersionAndSha" -BasePath "$SQUIRRELWIN" -OutputDirectory "$SQUIRRELWIN"
 
-  echo "=== Creating installers from Nuget package ==="
+  echo "=== Preparing to create installer ==="
   if [[ "$PublicTestBuild" == "true" ]]; then
     TestBuildString="-PublicTestBuild"
     InstallerIconFile="$GITHUB_WORKSPACE/src/icons/mudlet_ptb.ico"
@@ -245,18 +270,31 @@ else
   fi
 
   # Execute Squirrel to create the installer
+  echo "=== Creating installers from Nuget package ==="
   ./squirrel.windows/tools/Squirrel --releasify "$nupkg_path" \
     --releaseDir "$GITHUB_WORKSPACE/squirreloutput" \
     --loadingGif "$GITHUB_WORKSPACE/installers/windows/splash-installing-2x.png" \
-    --no-msi --setupIcon "$InstallerIconFile" \
-    -n "/a /f $GITHUB_WORKSPACE/installers/windows/code-signing-certificate.p12 /p $WIN_SIGNING_PASS /fd sha256 /tr http://timestamp.digicert.com /td sha256"
-
+    --no-msi --setupIcon "$InstallerIconFile" 
+    
   echo "=== Removing old directory content of release folder ==="
   rm -rf "${PACKAGE_DIR:?}/*"
 
   echo "=== Copying installer over ==="
-  installerExePath="${PACKAGE_DIR}/Mudlet-$VERSION$MUDLET_VERSION_BUILD-$BUILD_COMMIT-windows-$BUILD_BITNESS.exe"
+  if [[ "$PublicTestBuild" == "true" ]]; then
+    installerExePath="${PACKAGE_DIR}/Mudlet-$VERSION$MUDLET_VERSION_BUILD-$BUILD_COMMIT-windows-$BUILD_BITNESS.exe"
+  else # release
+    installerExePath="${PACKAGE_DIR}/Mudlet-$VERSION-windows-$BUILD_BITNESS-installer.exe"
+  fi
+  echo  "installerExePath: $installerExePath"
   mv "$GITHUB_WORKSPACE/squirreloutput/Setup.exe" "${installerExePath}"
+
+  # Sign the final installer
+  echo "=== Signing installer ==="
+  java.exe -jar $GITHUB_WORKSPACE/installers/windows/jsign-7.0-SNAPSHOT.jar --storetype TRUSTEDSIGNING \
+      --keystore eus.codesigning.azure.net \
+      --storepass ${AZURE_ACCESS_TOKEN} \
+      --alias Mudlet/Mudlet \
+      "$installerExePath"
 
   # Check if the setup executable exists
   if [[ ! -f "$installerExePath" ]]; then
@@ -280,7 +318,8 @@ else
   if [[ "$PublicTestBuild" == "true" ]]; then
     echo "=== Uploading public test build to make.mudlet.org ==="
 
-    uploadFilename="Mudlet-$VERSION$MUDLET_VERSION_BUILD-$BUILD_COMMIT-windows-$BUILD_BITNESS.exe"
+    uploadFilename="Mudlet-$VERSION$MUDLET_VERSION_BUILD-$BUILD_COMMIT-windows-$BUILD_BITNESS-installer.exe"
+    echo "uploadFilename: $uploadFilename"
 
     # Installer named $uploadFilename should exist in $PACKAGE_DIR now, we're ok to proceed
     moveToUploadDir "$uploadFilename" 1
@@ -289,21 +328,55 @@ else
   else
 
     echo "=== Uploading installer to https://www.mudlet.org/wp-content/files/?C=M;O=D ==="
-    scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "${DEPLOY_SSH_KEY}" "$installerExePath" "mudmachine@mudlet.org:${DEPLOY_PATH}"
+    echo "$DEPLOY_SSH_KEY" > temp_key_file
+
+    # chown doesn't work in msys2 and scp requires the not be globally readable
+    # use a powershell workaround to set the permissions correctly
+    echo "Fixing permissions of private key file"
+    powershell.exe -Command "icacls.exe temp_key_file /inheritance:r"
+
+    powershell.exe <<EOF
+\$installerExePath = "$installerExePath"
+\$DEPLOY_PATH = "$DEPLOY_PATH"
+scp.exe -i temp_key_file -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \$installerExePath mudmachine@mudlet.org:\${DEPLOY_PATH}
+EOF
+
+    shred -u temp_key_file
+
     DEPLOY_URL="https://www.mudlet.org/wp-content/files/Mudlet-${VERSION}-windows-$BUILD_BITNESS-installer.exe"
 
+    if ! curl --output /dev/null --silent --head --fail "$DEPLOY_URL"; then
+      echo "Error: release not found as expected at $DEPLOY_URL"
+      exit 1
+    fi
+
     SHA256SUM=$(shasum -a 256 "$installerExePath" | awk '{print $1}')
+
     current_timestamp=$(date "+%-d %-m %Y %-H %-M %-S")
     read -r day month year hour minute second <<< "$current_timestamp"
 
-    # file_cat=0 assuming Windows is the 0th item in WP-Download-Manager category
-    curl -X POST 'https://www.mudlet.org/download-add.php' \
-    -H "x-wp-download-token: ${DEPLOY_KEY_PASS}" \
+    # blank echo to remove the stray 'PS D:\a\Mudlet\Mudlet\installers\windows> ' that shows up otherwise
+
+    echo ""
+    echo "=== Updating WP-Download-Manager ==="
+    echo "sha256 of installer: $SHA256SUM"
+
+    if [ "${BUILD_BITNESS}" = "32" ]; then
+      FILE_CATEGORY="1"
+    else
+      FILE_CATEGORY="2"
+    fi
+
+    current_timestamp=$(date "+%-d %-m %Y %-H %-M %-S")
+    read -r day month year hour minute second <<< "$current_timestamp"
+
+    curl --retry 5 -X POST 'https://www.mudlet.org/download-add.php' \
+    -H "x-wp-download-token: ${X_WP_DOWNLOAD_TOKEN}" \
     -F "file_type=2" \
     -F "file_remote=$DEPLOY_URL" \
-    -F "file_name=Mudlet-${VERSION} (windows-$BUILD_BITNESS)" \
+    -F "file_name=Mudlet ${VERSION} (windows-$BUILD_BITNESS)" \
     -F "file_des=sha256: $SHA256SUM" \
-    -F "file_cat=0" \
+    -F "file_cat=${FILE_CATEGORY}" \
     -F "file_permission=-1" \
     -F "file_timestamp_day=$day" \
     -F "file_timestamp_month=$month" \
@@ -319,7 +392,7 @@ else
   fi
 
   echo "=== Installing NodeJS ==="
-  choco install nodejs --version="22.1.0" -y -r -n
+  choco install --no-progress nodejs --version="22.1.0" -y -r -n
   PATH="/c/Program Files/nodejs/:/c/npm/prefix/:${PATH}"
   export PATH
 
@@ -339,7 +412,13 @@ else
   echo "$Changelog"
 
   echo "=== Creating release in Dblsqd ==="
-  VersionString="${VERSION}${MUDLET_VERSION_BUILD}-${BUILD_COMMIT,,}"
+  if [[ "$PublicTestBuild" == "true" ]]; then
+    VersionString="${VERSION}${MUDLET_VERSION_BUILD}-${BUILD_COMMIT,,}"
+  else # release
+    VersionString="${VERSION}"
+  fi
+  
+  echo "VersionString: $VersionString"
   export VersionString
 
   # This may fail as a build from another architecture may have already registered a release with dblsqd,

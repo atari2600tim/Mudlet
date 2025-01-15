@@ -98,6 +98,10 @@ dlgPackageExporter::dlgPackageExporter(QWidget *parent, Host* pHost)
     connect(mExportButton, &QAbstractButton::clicked, this, &dlgPackageExporter::slot_exportPackage);
     connect(ui->pushButton_packageLocation, &QPushButton::clicked, this, &dlgPackageExporter::slot_openPackageLocation);
     connect(ui->lineEdit_packageName, &QLineEdit::textChanged, this, &dlgPackageExporter::slot_updateLocationPlaceholder);
+    connect(ui->lineEdit_author, &QLineEdit::textChanged, this, &dlgPackageExporter::checkToEnableExportButton);
+    connect(ui->lineEdit_title, &QLineEdit::textChanged, this, &dlgPackageExporter::checkToEnableExportButton);
+    connect(ui->lineEdit_version, &QLineEdit::textChanged, this, &dlgPackageExporter::checkToEnableExportButton);
+    connect(ui->textEdit_description, &QTextEdit::textChanged, this, &dlgPackageExporter::checkToEnableExportButton);
     connect(this, &dlgPackageExporter::signal_exportLocationChanged, this, &dlgPackageExporter::slot_updateLocationPlaceholder);
     slot_updateLocationPlaceholder();
     connect(ui->packageList, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &dlgPackageExporter::slot_packageChanged);
@@ -134,6 +138,13 @@ dlgPackageExporter::dlgPackageExporter(QWidget *parent, Host* pHost)
 
     //: Title of the window. The %1 will be replaced by the current profile's name
     setWindowTitle(tr("Package Exporter - %1").arg(mpHost->getName()));
+
+    // Set the previous details if saved
+    QSettings settings("mudlet", "Mudlet");
+    auto packageAuthor = settings.value(qsl("packageAuthor"), QString()).toString();
+    if (!packageAuthor.isEmpty()) {
+        ui->lineEdit_author->setText(packageAuthor);
+    }
 
     // Ensure this dialog goes away if the Host (profile) is closed while we are
     // open - as this is parented to the mudlet instance rather than the Host
@@ -285,7 +296,7 @@ void dlgPackageExporter::slot_packageChanged(int index)
         }
     }
 
-    const QString packagePath{mudlet::getMudletPath(mudlet::profileHomePath, mpHost->getName())};
+    const QString packagePath{mudlet::getMudletPath(enums::profileHomePath, mpHost->getName())};
     //fill package metadata
     mPackageIconPath.clear();
     QMap<QString, QString> const packageInfo = mpHost->mPackageInfo.value(packageName);
@@ -346,12 +357,37 @@ void dlgPackageExporter::slot_updateLocationPlaceholder()
     ui->lineEdit_filePath->setPlaceholderText(path);
 }
 
-void dlgPackageExporter::checkToEnableExportButton()
+void dlgPackageExporter::checkToEnableExportButton() 
 {
-    if (ui->lineEdit_packageName->text().isEmpty() || mExportingPackage) {
+    QStringList missingFields;
+    if (ui->lineEdit_packageName->text().isEmpty()) {
+        //: package name will be added to other fields in the 'required fields missing: ...' tooltip when it's missing
+        missingFields << tr("package name");
+    }
+    // intentionally disabled for now until mpkg gains wider adoption
+    // if (ui->lineEdit_author->text().isEmpty()) {
+    //     //: package author will be added to other fields in the 'required fields missing: ...' tooltip when it's missing
+    //     missingFields << tr("author");
+    // }
+    // if (ui->lineEdit_title->text().isEmpty()) {
+    //     //: package title will be added to other fields in the 'required fields missing: ...' tooltip when it's missing
+    //     missingFields << tr("title");
+    // }
+    // if (ui->lineEdit_version->text().isEmpty()) {
+    //     //: package version will be added to other fields in the 'required fields missing: ...' tooltip when it's missing
+    //     missingFields << tr("version");
+    // }
+    // if (ui->textEdit_description->toPlainText().isEmpty() || mExportingPackage) {
+    //     //: package description will be added to other fields in the 'required fields missing: ...' tooltip when it's missing
+    //     missingFields << tr("description");
+    // }
+
+    if (!missingFields.isEmpty()) {
         mExportButton->setEnabled(false);
+        mExportButton->setToolTip(tr("Required field missing: %1").arg(missingFields.join(qsl(", "))));
     } else {
-        mExportButton->setEnabled(true);
+        mExportButton->setEnabled(!mExportingPackage);
+        mExportButton->setToolTip(tr("Export package"));
     }
 }
 
@@ -402,7 +438,7 @@ bool dlgPackageExporter::eventFilter(QObject* obj, QEvent* evt)
             //during package creation it uses the profile folder. But once the package is created it will use
             //profile folder/packagename
             QString plainText{mPlainDescription};
-            const QString profilePath{mudlet::getMudletPath(mudlet::profileHomePath, mpHost->getName())};
+            const QString profilePath{mudlet::getMudletPath(enums::profileHomePath, mpHost->getName())};
             //$packagePath will be replaced by the resource path if an existing package is selected
             if (ui->packageList->currentIndex() != 0) {
                 const QString packageName = ui->packageList->currentText();
@@ -607,6 +643,10 @@ void dlgPackageExporter::slot_exportPackage()
         mCloseButton->setVisible(true);
         QApplication::restoreOverrideCursor();
     }
+
+    // save settings for future reuse
+    QSettings settings("mudlet", "Mudlet");
+    settings.setValue("packageAuthor", ui->lineEdit_author->text());
 }
 
 //copy the newly-added description image files
@@ -914,7 +954,7 @@ std::pair<bool, QString> dlgPackageExporter::zipPackage(const QString& stagingDi
         return {false, errMsg};
     }
     // Opened/created archive file successfully
-#if defined(Q_OS_WIN32)
+#if defined(Q_OS_WINDOWS)
 #if QT_VERSION < QT_VERSION_CHECK(6, 6, 0)
     /*
      * From Qt Docs:
@@ -935,7 +975,7 @@ std::pair<bool, QString> dlgPackageExporter::zipPackage(const QString& stagingDi
      */
     qEnableNtfsPermissionChecks();
 #endif
-#endif // defined(Q_OS_WIN32)
+#endif // defined(Q_OS_WINDOWS)
     QDirIterator stagingFile(stagingDirName, QDir::NoDotAndDotDot | QDir::AllDirs | QDir::Files, QDirIterator::Subdirectories);
     // relative names to use in archive:
     QStringList directoryEntries;
@@ -972,7 +1012,7 @@ std::pair<bool, QString> dlgPackageExporter::zipPackage(const QString& stagingDi
         }
     }
 
-#if defined(Q_OS_WIN32)
+#if defined(Q_OS_WINDOWS)
     // Turn off permission checking on NTFS file systems
 #if QT_VERSION < QT_VERSION_CHECK(6, 6, 0)
     qt_ntfs_permission_lookup--;
@@ -1509,7 +1549,7 @@ void dlgPackageExporter::slot_recountItems(QTreeWidgetItem *item)
         debounce = true;
         QTimer::singleShot(0, this, [this]() {
             debounce = false;
-            
+
             const int itemsToExport = countCheckedItems();
             if (itemsToExport) {
                 //: This is the text shown at the top of a groupbox when there is %n (one or more) items to export in the Package exporter dialogue; the initial (and when there is no items selected) is a separate text.
