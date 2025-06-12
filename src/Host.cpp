@@ -80,7 +80,11 @@ stopWatch::stopWatch()
 , mEffectiveStartDateTime()
 , mElapsedTime()
 {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    mEffectiveStartDateTime.setTimeZone(QTimeZone::UTC);
+#else
     mEffectiveStartDateTime.setTimeSpec(Qt::UTC);
+#endif
 }
 
 bool stopWatch::start()
@@ -243,7 +247,6 @@ Host::Host(int port, const QString& hostname, const QString& login, const QStrin
 , mpAuth(new GMCPAuthenticator(this))
 , mpNotePad(nullptr)
 , mPrintCommand(true)
-, mIsRemoteEchoingActive(false)
 , mIsCurrentLogFileInHtmlFormat(false)
 , mIsNextLogFileInHtmlFormat(false)
 , mIsLoggingTimestamps(false)
@@ -281,7 +284,6 @@ Host::Host(int port, const QString& hostname, const QString& login, const QStrin
 , mCommandLineBgColor(Qt::black)
 , mMapperUseAntiAlias(true)
 , mMapperShowRoomBorders(true)
-, mFORCE_MXP_NEGOTIATION_OFF(false)
 , mFORCE_CHARSET_NEGOTIATION_OFF(false)
 , mpDockableMapWidget()
 , mEnableTextAnalyzer(false)
@@ -565,7 +567,7 @@ void Host::startMapAutosave(const int interval)
 
 void Host::timerEvent(QTimerEvent *event)
 {
-    Q_UNUSED(event);
+    Q_UNUSED(event)
 
     autoSaveMap();
 }
@@ -1187,7 +1189,7 @@ bool Host::checkForCustomSpeedwalk()
 void Host::startSpeedWalk()
 {
     const int totalWeight = assemblePath();
-    Q_UNUSED(totalWeight);
+    Q_UNUSED(totalWeight)
     const QString f = qsl("doSpeedWalk");
     const QString n = QString();
     mLuaInterpreter.call(f, n);
@@ -1263,7 +1265,7 @@ void Host::send(QString cmd, bool wantPrint, bool dontExpandAliases)
 
         // allow sending blank commands
 
-    if (!dontExpandAliases && commandList.empty()) {
+    if (commandList.empty()) {
         QString payload(QChar::LineFeed);
         mTelnet.sendData(payload);
         return;
@@ -1994,7 +1996,8 @@ std::pair<bool, QString> Host::installPackage(const QString& fileName, enums::Pa
 }
 
 
-QString Host::sanitizePackageName(const QString packageName) const {
+QString Host::sanitizePackageName(const QString packageName) const
+{
     auto tempName = packageName.section(qsl("/"), -1);
     tempName.remove(qsl(".trigger"), Qt::CaseInsensitive);
     tempName.remove(qsl(".xml"), Qt::CaseInsensitive);
@@ -2028,7 +2031,8 @@ bool Host::removeDir(const QString& dirName, const QString& originalPath)
     return result;
 }
 
-void Host::removePackageInfo(const QString &packageName, const bool isModule) {
+void Host::removePackageInfo(const QString &packageName, const bool isModule)
+{
     if (isModule) {
         mModuleInfo.remove(packageName);
     } else {
@@ -2827,7 +2831,7 @@ void Host::setSpellDic(const QString& newDict)
 // DISABLED: - Prevent "None" option for user dictionary - modified to prevent original useDictionary argument from being false:
 void Host::setUserDictionaryOptions(const bool _useDictionary, const bool useShared)
 {
-    Q_UNUSED(_useDictionary);
+    Q_UNUSED(_useDictionary)
     const bool useDictionary = true;
     bool dictionaryChanged {};
     // Copy the value while we have the lock:
@@ -4274,11 +4278,13 @@ void Host::setEditorShowBidi(const bool state)
     }
 }
 
-bool Host::caretEnabled() const {
+bool Host::caretEnabled() const
+{
     return mCaretEnabled;
 }
 
-void Host::setCaretEnabled(bool enabled) {
+void Host::setCaretEnabled(bool enabled)
+{
     mCaretEnabled = enabled;
     mpConsole->setCaretMode(enabled);
 }
@@ -4387,4 +4393,24 @@ void Host::setCommandLineHistorySaveSize(const int lines)
 void Host::editorThemeChanged()
 {
     emit signal_editorThemeChanged();
+}
+
+void Host::sendCmdLine(const QString& cmd)
+{
+    if (!mpConsole || !mpConsole->mpCommandLine) {
+        qWarning() << "Host::sendCmdLine(...) ERROR - No active command line available.";
+        return;
+    }
+
+    // Set the command in the active command line
+    mpConsole->mpCommandLine->setPlainText(cmd);
+    mpConsole->mpCommandLine->selectAll();
+}
+
+void Host::setRemoteEchoingActive(bool active)
+{
+    if (mIsRemoteEchoingActive != active) {
+        mIsRemoteEchoingActive = active;
+        emit signal_remoteEchoChanged(active);
+    }
 }

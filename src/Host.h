@@ -129,7 +129,7 @@ private:
 inline QDebug& operator<<(QDebug& debug, const stopWatch& stopwatch)
 {
     const QDebugStateSaver saver(debug);
-    Q_UNUSED(saver);
+    Q_UNUSED(saver)
     debug.nospace() << qsl("stopwatch(mIsRunning: %1 mInitialised: %2 mIsPersistent: %3 mEffectiveStartDateTime: %4 mElapsedTime: %5)")
                        .arg((stopwatch.running() ? QLatin1String("true") : QLatin1String("false")),
                             (stopwatch.initialised() ? QLatin1String("true") : QLatin1String("false")),
@@ -433,6 +433,8 @@ public:
         }
     }
 
+    void sendCmdLine(const QString& cmd);
+
     cTelnet mTelnet;
     QPointer<TMainConsole> mpConsole;
     QPointer<dlgPackageManager> mpPackageManager;
@@ -459,7 +461,7 @@ public:
     bool mEnableMSP = true;
     bool mEnableMTTS = true;
     bool mEnableMNES = false;
-    bool mServerMXPenabled = true;
+    bool mEnableMXP = true;
     bool mAskTlsAvailable = true;
     int mMSSPTlsPort = 0;
     QString mMSSPHostName;
@@ -513,7 +515,11 @@ public:
      * hide them on our screen (and from logging!) - It should negate the effect
      * of the above mPrintCommand being true...
      */
-    bool mIsRemoteEchoingActive;
+    bool mIsRemoteEchoingActive = false;
+
+public:
+    void setRemoteEchoingActive(bool active);
+    bool isRemoteEchoingActive() const { return mIsRemoteEchoingActive; }
 
     // To cover the corner case of the user changing the mode
     // while a log is being written, this stores the mode of
@@ -669,7 +675,6 @@ public:
     QColor mCommandLineBgColor;
     bool mMapperUseAntiAlias;
     bool mMapperShowRoomBorders;
-    bool mFORCE_MXP_NEGOTIATION_OFF;
     bool mFORCE_CHARSET_NEGOTIATION_OFF;
     bool mForceNewEnvironNegotiationOff = false;
     QSet<QChar> mDoubleClickIgnore;
@@ -701,6 +706,8 @@ public:
 
     bool mAnnounceIncomingText = true;
     bool mAdvertiseScreenReader = false;
+    bool mEnableClosedCaption = false;
+
     enum class BlankLineBehaviour {
         Show,
         Hide,
@@ -736,6 +743,7 @@ signals:
     // Tells all command lines to save their history:
     void signal_saveCommandLinesHistory();
     void signal_editorThemeChanged();
+    void signal_remoteEchoChanged(bool enabled);
 
 private slots:
     void slot_purgeTemps();

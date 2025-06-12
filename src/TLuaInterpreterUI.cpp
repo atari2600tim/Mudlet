@@ -543,6 +543,27 @@ int TLuaInterpreter::disableScrollBar(lua_State* L)
     return 0;
 }
 
+// Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#disableTimeStamps
+int TLuaInterpreter::disableTimeStamps(lua_State* L)
+{
+    const QString windowName {WINDOW_NAME(L, 1)};
+    auto pConsole = CONSOLE(L, windowName);
+    // *pConsole can be the main console as well as any user one
+    if (!pConsole->showTimeStamps()) {
+        lua_pushnil(L);
+        if (windowName.isEmpty()) {
+            lua_pushstring(L, qsl("timestamps were not enabled for the main console").toUtf8().constData());
+        } else {
+            lua_pushstring(L, qsl("timestamps were not enabled for the \"%1\" console").arg(windowName).toUtf8().constData());
+        }
+        return 2;
+    }
+
+    pConsole->slot_toggleTimeStamps(false);
+    lua_pushboolean(L, true);
+    return 1;
+}
+
 // Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#echoLink
 int TLuaInterpreter::echoLink(lua_State* L)
 {
@@ -717,6 +738,27 @@ int TLuaInterpreter::enableScrollBar(lua_State* L)
     return 0;
 }
 
+// Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#enableTimeStamps
+int TLuaInterpreter::enableTimeStamps(lua_State* L)
+{
+    const QString windowName {WINDOW_NAME(L, 1)};
+    auto pConsole = CONSOLE(L, windowName);
+    // *pConsole can be the main console as well as any user one
+    if (pConsole->showTimeStamps()) {
+        lua_pushnil(L);
+        if (windowName.isEmpty()) {
+            lua_pushstring(L, qsl("timestamps were not enabled for the main console").toUtf8().constData());
+        } else {
+            lua_pushstring(L, qsl("timestamps were not enabled for the \"%1\" console").arg(windowName).toUtf8().constData());
+        }
+        return 2;
+    }
+
+    pConsole->slot_toggleTimeStamps(true);
+    lua_pushboolean(L, true);
+    return 1;
+}
+
 // Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#getAvailableFonts
 int TLuaInterpreter::getAvailableFonts(lua_State* L)
 {
@@ -887,15 +929,27 @@ int TLuaInterpreter::getFgColor(lua_State* L)
     }
     return result.size();
 }
-
-// Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#getFont
 int TLuaInterpreter::getFont(lua_State* L)
 {
     QString windowName = qsl("main");
-    QString font;
     windowName = WINDOW_NAME(L, 1);
     auto console = CONSOLE(L, windowName);
-    font = console->mUpperPane->fontInfo().family();
+    Host& host = getHostFromLua(L);
+
+    auto actualFontFamily = [](const QFont& font) -> QString {
+        return QFontInfo(font).family();
+    };
+
+    QString font;
+
+    if (console == host.mpConsole) {
+        font = actualFontFamily(host.getDisplayFont());
+    } else if (console->mUpperPane) {
+        font = actualFontFamily(console->mUpperPane->font());
+    } else {
+        font = actualFontFamily(console->font());
+    }
+
     lua_pushstring(L, font.toUtf8().constData());
     return 1;
 }
@@ -1264,6 +1318,16 @@ int TLuaInterpreter::getTextFormat(lua_State* L)
 
     lua_settable(L, -3);
 
+    return 1;
+}
+
+// Documentation: https://wiki.mudlet.org/w/Manual:Lua_Functions#timeStampsEnabled
+int TLuaInterpreter::timeStampsEnabled(lua_State* L)
+{
+    const QString windowName {WINDOW_NAME(L, 1)};
+    auto pConsole = CONSOLE(L, windowName);
+    // *pConsole can be the main console as well as any user one
+    lua_pushboolean(L, pConsole->showTimeStamps());
     return 1;
 }
 
@@ -2396,6 +2460,10 @@ int TLuaInterpreter::setFont(lua_State* L)
     }
 
     const QString font = getVerifiedString(L, __func__, s, "name");
+
+    if (font.trimmed().isEmpty()) {
+        return warnArgumentValue(L, __func__, "font must not be empty");
+    }
 
     if (!mudlet::self()->getAvailableFonts().contains(font, Qt::CaseInsensitive)) {
         return warnArgumentValue(L, __func__, qsl("font '%1' is not available").arg(font));

@@ -1,7 +1,7 @@
 /***************************************************************************
  *   Copyright (C) 2008-2012 by Heiko Koehn - KoehnHeiko@googlemail.com    *
  *   Copyright (C) 2014 by Ahmed Charles - acharles@outlook.com            *
- *   Copyright (C) 2014, 2016-2018, 2020-2023 by Stephen Lyons             *
+ *   Copyright (C) 2014, 2016-2018, 2020-2023, 2025 by Stephen Lyons       *
  *                                               - slysven@virginmedia.com *
  *   Copyright (C) 2016 by Ian Adkins - ieadkins@gmail.com                 *
  *                                                                         *
@@ -487,6 +487,7 @@ void dlgProfilePreferences::disableHostDetails()
     label_caretModeKey->setEnabled(false);
     checkBox_announceIncomingText->setEnabled(false);
     checkBox_advertiseScreenReader->setEnabled(false);
+    checkBox_enableClosedCaption->setEnabled(false);
     comboBox_blankLinesBehaviour->setEnabled(false);
     comboBox_caretModeKey->setEnabled(false);
 
@@ -598,6 +599,7 @@ void dlgProfilePreferences::enableHostDetails()
     label_caretModeKey->setEnabled(true);
     checkBox_announceIncomingText->setEnabled(true);
     checkBox_advertiseScreenReader->setEnabled(true);
+    checkBox_enableClosedCaption->setEnabled(true);
     comboBox_blankLinesBehaviour->setEnabled(true);
     comboBox_caretModeKey->setEnabled(true);
 
@@ -617,6 +619,23 @@ void dlgProfilePreferences::initWithHost(Host* pHost)
 {
     loadEditorTab();
 
+    mDisplayFont = pHost->getDisplayFont();
+    pushButton_fontDialog->setText(QString("%1, %2, %3pt").arg(mDisplayFont.family()).arg(mDisplayFont.styleName()).arg(mDisplayFont.pointSize()));
+
+    connect(pushButton_fontDialog, &QPushButton::clicked, this, [this, pHost](){
+        bool ok;
+        QFont font = QFontDialog::getFont(&ok, pHost->getDisplayFont(), this->window());
+        if (ok) {
+            qDebug() << "Font selected: " << font.toString();
+            qDebug() << "Font family: " << font.family();
+            qDebug() << "Font size: " << font.pointSize();
+            mDisplayFont = font;
+            mFontSize = font.pointSize();
+            slot_setFontSize();
+            pushButton_fontDialog->setText(QString("%1, %2, %3pt").arg(mDisplayFont.family()).arg(mDisplayFont.styleName()).arg(mDisplayFont.pointSize()));
+        }
+    });
+
     // search engine load
     search_engine_combobox->addItems(QStringList(mpHost->mSearchEngineData.keys()));
 
@@ -624,7 +643,6 @@ void dlgProfilePreferences::initWithHost(Host* pHost)
     const int savedText = search_engine_combobox->findText(mpHost->getSearchEngine().first);
     search_engine_combobox->setCurrentIndex(savedText == -1 ? 1 : savedText);
 
-    mFORCE_MXP_NEGOTIATION_OFF->setChecked(pHost->mFORCE_MXP_NEGOTIATION_OFF);
     mFORCE_CHARSET_NEGOTIATION_OFF->setChecked(pHost->mFORCE_CHARSET_NEGOTIATION_OFF);
     mForceNewEnvironNegotiationOff->setChecked(pHost->mForceNewEnvironNegotiationOff);
     mMapperUseAntiAlias->setChecked(pHost->mMapperUseAntiAlias);
@@ -723,13 +741,6 @@ void dlgProfilePreferences::initWithHost(Host* pHost)
     }
 
     setColors();
-
-    QStringList sizeList;
-    for (int i = 1; i < 40; i++) {
-        sizeList << QString::number(i);
-    }
-    fontSize->insertItems(1, sizeList);
-
     setColors2();
 
 
@@ -745,6 +756,9 @@ void dlgProfilePreferences::initWithHost(Host* pHost)
     checkBox_advertiseScreenReader->setChecked(pHost->mAdvertiseScreenReader);
     connect(checkBox_advertiseScreenReader, &QCheckBox::toggled, this, &dlgProfilePreferences::slot_toggleAdvertiseScreenReader);
 
+    checkBox_enableClosedCaption->setChecked(pHost->mEnableClosedCaption);
+    connect(checkBox_enableClosedCaption, &QCheckBox::toggled, this, &dlgProfilePreferences::slot_toggleEnableClosedCaption);
+
     // Block signals before setting initial state to prevent toggled signal
     checkBox_f3SearchEnabled->blockSignals(true);
     checkBox_f3SearchEnabled->setChecked(pHost->getF3SearchEnabled());
@@ -755,21 +769,10 @@ void dlgProfilePreferences::initWithHost(Host* pHost)
     // same with special connection warnings
     need_reconnect_for_specialoption->hide();
 
-    fontComboBox->setCurrentFont(pHost->getDisplayFont());
+    mDisplayFont = pHost->getDisplayFont();
     mFontSize = pHost->getDisplayFont().pointSize();
     if (mFontSize < 0) {
         mFontSize = 10;
-    }
-    if (mFontSize < 40 && mFontSize > 0) {
-        fontSize->setCurrentIndex((mFontSize - 1));
-    } else {
-        // if the font size set for the main console is outside the pre-set range
-        // this will unfortunately reset the font to default size.
-        // without this the first entry (font-size 1) is selected and on-save
-        // will make the console font far too tiny to read.
-        // Maybe our font-size range should be generated differently if the console
-        // has a font size larger than the preset range offers?
-        fontSize->setCurrentIndex(9); // default font is size 10, index 9.
     }
 
     wrap_at_spinBox->setValue(pHost->mWrapAt);
@@ -888,6 +891,11 @@ void dlgProfilePreferences::initWithHost(Host* pHost)
     mEnableMSP->setCheckable(true);
     mEnableMSP->setChecked(pHost->mEnableMSP);
     protocolMenu->addAction(mEnableMSP);
+
+    mEnableMXP = new QAction(tr("MXP: Mud eXtension Protocol"), nullptr);
+    mEnableMXP->setCheckable(true);
+    mEnableMXP->setChecked(pHost->mEnableMXP);
+    protocolMenu->addAction(mEnableMXP);
 
     mEnableMTTS = new QAction(tr("MTTS: Mud Terminal Type Standard"), nullptr);
     mEnableMTTS->setCheckable(true);
@@ -1192,10 +1200,6 @@ void dlgProfilePreferences::initWithHost(Host* pHost)
 
     connect(pushButton_resetColors, &QAbstractButton::clicked, this, &dlgProfilePreferences::slot_resetColors);
     connect(reset_colors_button_2, &QAbstractButton::clicked, this, &dlgProfilePreferences::slot_resetMapColors);
-
-    connect(fontComboBox, &QFontComboBox::currentFontChanged, this, &dlgProfilePreferences::slot_setDisplayFont);
-    connect(fontSize, qOverload<int>(&QComboBox::currentIndexChanged), this, &dlgProfilePreferences::slot_setFontSize);
-
     connect(pushButton_black_2, &QAbstractButton::clicked, this, &dlgProfilePreferences::slot_setMapColorBlack);
     connect(pushButton_Lblack_2, &QAbstractButton::clicked, this, &dlgProfilePreferences::slot_setMapColorLightBlack);
     connect(pushButton_green_2, &QAbstractButton::clicked, this, &dlgProfilePreferences::slot_setMapColorGreen);
@@ -1225,6 +1229,7 @@ void dlgProfilePreferences::initWithHost(Host* pHost)
     connect(mEnableMSDP, &QAction::toggled, need_reconnect_for_data_protocol, &QWidget::show);
     connect(mEnableMSSP, &QAction::toggled, need_reconnect_for_data_protocol, &QWidget::show);
     connect(mEnableMSP, &QAction::toggled, need_reconnect_for_data_protocol, &QWidget::show);
+    connect(mEnableMXP, &QAction::toggled, need_reconnect_for_data_protocol, &QWidget::show);
     connect(mEnableMTTS, &QAction::toggled, need_reconnect_for_data_protocol, &QWidget::show);
     connect(mEnableMNES, &QAction::toggled, need_reconnect_for_data_protocol, &QWidget::show);
 
@@ -1256,7 +1261,7 @@ void dlgProfilePreferences::initWithHost(Host* pHost)
         gridLayout_groupBox_shortcuts->addWidget(new QLabel(mudlet::self()->mpShortcutsManager->getLabel(key)), floor(shortcutsRow / 2), (shortcutsRow % 2) * 2 + 1);
         gridLayout_groupBox_shortcuts->addWidget(sequenceEdit, floor(shortcutsRow / 2), (shortcutsRow % 2) * 2 + 2);
         shortcutsRow++;
-        connect(sequenceEdit, &QKeySequenceEdit::editingFinished, this, [=, this]() {
+        connect(sequenceEdit, &QKeySequenceEdit::editingFinished, this, [=]() {
             QKeySequence* newSequence = nullptr;
             if (sequenceEdit->keySequence().isEmpty()
                     || sequenceEdit->keySequence().matches(QKeySequence(Qt::Key_Escape))) {
@@ -1268,7 +1273,7 @@ void dlgProfilePreferences::initWithHost(Host* pHost)
             sequence->swap(*newSequence);
             delete newSequence;
         });
-        connect(this, &dlgProfilePreferences::signal_resetMainWindowShortcutsToDefaults, sequenceEdit, [=, this]() {
+        connect(this, &dlgProfilePreferences::signal_resetMainWindowShortcutsToDefaults, sequenceEdit, [=]() {
             sequenceEdit->setKeySequence(*mudlet::self()->mpShortcutsManager->getDefault(key));
             QKeySequence* newSequence = new QKeySequence(*mudlet::self()->mpShortcutsManager->getDefault(key));
             sequence->swap(*newSequence);
@@ -1284,6 +1289,7 @@ void dlgProfilePreferences::disconnectHostRelatedControls()
     // disconnect(...) counterparts - so we need to provide the "dummy"
     // arguments to get the wanted wild-card behaviour for them:
 
+    disconnect(pushButton_fontDialog, &QAbstractButton::clicked, nullptr, nullptr);
     disconnect(buttonDownloadMap, &QAbstractButton::clicked, nullptr, nullptr);
 
     disconnect(pushButton_foreground_color, &QAbstractButton::clicked, nullptr, nullptr);
@@ -1312,9 +1318,6 @@ void dlgProfilePreferences::disconnectHostRelatedControls()
 
     disconnect(pushButton_resetColors, &QAbstractButton::clicked, nullptr, nullptr);
     disconnect(reset_colors_button_2, &QAbstractButton::clicked, nullptr, nullptr);
-
-    disconnect(fontComboBox, qOverload<const QFont&>(&QFontComboBox::currentFontChanged), nullptr, nullptr);
-    disconnect(fontSize, qOverload<int>(&QComboBox::currentIndexChanged), nullptr, nullptr);
 
     disconnect(pushButton_black_2, &QAbstractButton::clicked, nullptr, nullptr);
     disconnect(pushButton_Lblack_2, &QAbstractButton::clicked, nullptr, nullptr);
@@ -1345,6 +1348,7 @@ void dlgProfilePreferences::disconnectHostRelatedControls()
     disconnect(mEnableMSSP, &QAction::toggled, nullptr, nullptr);
     disconnect(mEnableMSDP, &QAction::toggled, nullptr, nullptr);
     disconnect(mEnableMSP, &QAction::toggled, nullptr, nullptr);
+    disconnect(mEnableMXP, &QAction::toggled, nullptr, nullptr);
     disconnect(mEnableMTTS, &QAction::toggled, nullptr, nullptr);
     disconnect(mEnableMNES, &QAction::toggled, nullptr, nullptr);
 
@@ -1377,7 +1381,6 @@ void dlgProfilePreferences::clearHostDetails()
     script_preview_combobox->clear();
     edbeePreviewWidget->textDocument()->setText(QString());
 
-    mFORCE_MXP_NEGOTIATION_OFF->setChecked(false);
     mFORCE_CHARSET_NEGOTIATION_OFF->setChecked(false);
     mForceNewEnvironNegotiationOff->setChecked(false);
     mMapperUseAntiAlias->setChecked(false);
@@ -1399,15 +1402,9 @@ void dlgProfilePreferences::clearHostDetails()
 
     groupBox_downloadMapOptions->setVisible(false);
 
-    fontSize->clear();
-
     need_reconnect_for_data_protocol->hide();
 
     need_reconnect_for_specialoption->hide();
-
-    fontComboBox->clear();
-
-    fontSize->clear();
 
     setColors();
     setColors2();
@@ -1473,6 +1470,7 @@ void dlgProfilePreferences::clearHostDetails()
     checkBox_debugShowAllCodepointProblems->setChecked(false);
     checkBox_announceIncomingText->setChecked(false);
     checkBox_advertiseScreenReader->setChecked(false);
+    checkBox_enableClosedCaption->setChecked(false);
     comboBox_blankLinesBehaviour->setCurrentIndex(0);
 
     groupBox_ssl_certificate->hide();
@@ -1888,7 +1886,6 @@ void dlgProfilePreferences::slot_setCommandBgColor()
 
 void dlgProfilePreferences::slot_setFontSize()
 {
-    mFontSize = fontSize->currentIndex() + 1;
     slot_setDisplayFont();
 
     Host* pHost = mpHost;
@@ -1906,19 +1903,17 @@ void dlgProfilePreferences::slot_setDisplayFont()
     if (!pHost) {
         return;
     }
-    QFont newFont = fontComboBox->currentFont();
-    newFont.setPointSize(mFontSize);
 
-    if (pHost->getDisplayFont() == newFont) {
+    if (pHost->getDisplayFont() == mDisplayFont) {
         return;
     }
 
     label_invalidFontError->hide();
     label_variableWidthFontWarning->hide();
-    if (auto [validFont, errorMessage] = pHost->setDisplayFont(newFont); !validFont) {
+    if (auto [validFont, errorMessage] = pHost->setDisplayFont(mDisplayFont); !validFont) {
         label_invalidFontError->show();
         return;
-    } else if (!QFontInfo(newFont).fixedPitch()) {
+    } else if (!QFontInfo(mDisplayFont).fixedPitch()) {
         label_variableWidthFontWarning->show();
     }
 
@@ -1943,7 +1938,7 @@ void dlgProfilePreferences::slot_setDisplayFont()
 
     auto config = edbeePreviewWidget->config();
     config->beginChanges();
-    config->setFont(newFont);
+    config->setFont(mDisplayFont);
     config->endChanges();
 
     pHost->mTelnet.sendInfoNewEnvironValue(qsl("FONT"));
@@ -2495,7 +2490,7 @@ void dlgProfilePreferences::slot_saveMap()
     dialog->setNameFilter(saveExtensions.join(qsl(";;")));
     dialog->setAcceptMode(QFileDialog::AcceptSave);
     dialog->setDefaultSuffix(qsl("dat"));
-    connect(dialog,  &QFileDialog::filterSelected, this, [=, this](const QString& filter) {
+    connect(dialog,  &QFileDialog::filterSelected, this, [=](const QString& filter) {
         if (filter == datFilter) {
             dialog->setDefaultSuffix(qsl("dat"));
         }
@@ -2850,7 +2845,7 @@ void dlgProfilePreferences::slot_resetLogDir()
 
 void dlgProfilePreferences::slot_logFileNameFormatChange(const int index)
 {
-    Q_UNUSED(index);
+    Q_UNUSED(index)
 
     Host* pHost = mpHost;
     if (!pHost) {
@@ -2913,6 +2908,7 @@ void dlgProfilePreferences::slot_saveAndClose()
         pHost->mEnableMSSP = mEnableMSSP->isChecked();
         pHost->mEnableMSDP = mEnableMSDP->isChecked();
         pHost->mEnableMSP = mEnableMSP->isChecked();
+        pHost->mEnableMXP = mEnableMXP->isChecked();
         pHost->mEnableMTTS = mEnableMTTS->isChecked();
         pHost->mEnableMNES = mEnableMNES->isChecked();
         pHost->mMapperUseAntiAlias = mMapperUseAntiAlias->isChecked();
@@ -2944,7 +2940,6 @@ void dlgProfilePreferences::slot_saveAndClose()
         const QMargins newBorders{leftBorderWidth->value(), topBorderHeight->value(), rightBorderWidth->value(), bottomBorderHeight->value()};
         pHost->setBorders(newBorders);
         pHost->commandLineMinimumHeight = commandLineMinimumHeight->value();
-        pHost->mFORCE_MXP_NEGOTIATION_OFF = mFORCE_MXP_NEGOTIATION_OFF->isChecked();
         pHost->mFORCE_CHARSET_NEGOTIATION_OFF = mFORCE_CHARSET_NEGOTIATION_OFF->isChecked();
         pHost->mForceNewEnvironNegotiationOff = mForceNewEnvironNegotiationOff->isChecked();
         pHost->mIsNextLogFileInHtmlFormat = mIsToLogInHtml->isChecked();
@@ -3066,8 +3061,6 @@ void dlgProfilePreferences::slot_saveAndClose()
             pHost->mpDlgIRC->ircRestart();
         }
 
-        slot_setDisplayFont();
-
         if (console) {
             const int x = console->width();
             const int y = console->height();
@@ -3142,6 +3135,7 @@ void dlgProfilePreferences::slot_saveAndClose()
 
         pHost->mAnnounceIncomingText = checkBox_announceIncomingText->isChecked();
         pHost->mAdvertiseScreenReader = checkBox_advertiseScreenReader->isChecked();
+        pHost->mEnableClosedCaption = checkBox_enableClosedCaption->isChecked();
 
         pHost->setHaveColorSpaceId(checkBox_expectCSpaceIdInColonLessMColorCode->isChecked());
         pHost->setMayRedefineColors(checkBox_allowServerToRedefineColors->isChecked());
@@ -3215,7 +3209,7 @@ void dlgProfilePreferences::slot_saveAndClose()
 
 void dlgProfilePreferences::slot_chosenProfilesChanged(QAction* _action)
 {
-    Q_UNUSED(_action);
+    Q_UNUSED(_action)
 
     QMenu* _menu = pushButton_chooseProfiles->menu();
     QListIterator<QAction*> itAction(_menu->actions());
@@ -3881,7 +3875,7 @@ void dlgProfilePreferences::generateDiscordTooltips()
         state = qsl("<br/>(\"%1\")").arg(state);
     }
 
-    auto setToolTip = [=, this](QWidget* widget, const QString& highlight) {
+    auto setToolTip = [=](QWidget* widget, const QString& highlight) {
         const QString tooltip = qsl(R"(
   <style type="text/css">
     .tg  {border-collapse:collapse;border-spacing:0;}
@@ -4243,7 +4237,7 @@ void dlgProfilePreferences::slot_changeShowIconsOnMenus(const Qt::CheckState sta
 // is changed by the user.
 void dlgProfilePreferences::slot_changeGuiLanguage(int languageIndex)
 {
-    Q_UNUSED(languageIndex);
+    Q_UNUSED(languageIndex)
 
     auto languageCode = comboBox_guiLanguage->currentData().toString();
     mudlet::self()->setInterfaceLanguage(languageCode);
@@ -4505,6 +4499,13 @@ void dlgProfilePreferences::slot_toggleAdvertiseScreenReader(const bool state)
         pHost->mAdvertiseScreenReader = state;
         pHost->mTelnet.sendInfoNewEnvironValue(qsl("SCREEN_READER"));
         pHost->mTelnet.sendInfoNewEnvironValue(qsl("MTTS"));
+    }
+}
+
+void dlgProfilePreferences::slot_toggleEnableClosedCaption(const bool state)
+{
+    if (mpHost && mpHost->mEnableClosedCaption != state) {
+        mpHost->mEnableClosedCaption = state;
     }
 }
 
